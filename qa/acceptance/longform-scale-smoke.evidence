@@ -1,0 +1,120 @@
+"""Opt-in runner contract. Set LONGFORM_SCALE_BINARY to also run real core smoke."""
+
+import json
+import os
+from pathlib import Path
+import re
+import subprocess
+import sys
+import tempfile
+import unittest
+
+REPO = Path(__file__).resolve().parents[2]
+RUNNER = REPO / "scripts" / "longform_scale.py"
+MIB = 1024 * 1024
+
+
+class RunnerEvidence(unittest.TestCase):
+    def run_cli(self, binary, *args, profile="dev", mode="--smoke"):
+        result = subprocess.run(
+            [sys.executable, str(RUNNER), "--binary", str(binary), "--profile", profile,
+             mode, *args],
+            cwd=REPO, capture_output=True, text=True, timeout=120,
+        )
+        path = re.search(r"^report: (.*)$", result.stdout, re.MULTILINE)
+        self.assertIsNotNone(path, result.stderr)
+        return result, Path(path.group(1))
+
+    def test_timeout_kills_child_and_keeps_incomplete_stage_evidence(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            sleeper = Path(tmp) / "sleep"
+            sleeper.write_text("#!/bin/sh\necho 'child started' >&2\nexec sleep 10\n")
+            sleeper.chmod(0o700)
+            result, path = self.run_cli(sleeper, "--wall-seconds", "1")
+        self.assertNotEqual(result.returncode, 0)
+        report = json.loads(path.read_text())
+        self.assertEqual(report["status"], "incomplete")
+        stage = report["stages"][-1]
+        self.assertEqual(stage["name"], "seed")
+        self.assertIn("time", stage["stop_reason"])
+        self.assertLess(stage["wall_seconds"], 3)
+        self.assertIn("child started", (path.parent / "seed.stderr.log").read_text())
+
+    def test_disk_budget_stops_child_and_retains_fixture(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            writer = Path(tmp) / "write"
+            writer.write_text(
+                "#!/bin/sh\ndd if=/dev/zero of=payload bs=1M count=3 2>/dev/null\nexec sleep 10\n"
+            )
+            writer.chmod(0o700)
+            result, path = self.run_cli(writer, "--disk-mib", "2")
+        self.assertNotEqual(result.returncode, 0)
+        report = json.loads(path.read_text())
+        self.assertEqual(report["status"], "incomplete")
+        self.assertIn("disk", report["stages"][-1]["stop_reason"])
+        self.assertGreaterEqual((path.parent / "payload").stat().st_size, 2 * MIB)
+        stage = report["stages"][-1]
+        self.assertGreaterEqual(stage["sampled_run_tree_logical_peak_bytes"], 2 * MIB)
+        self.assertGreaterEqual(stage["sampled_run_tree_allocated_peak_bytes"], 2 * MIB)
+
+    def test_disk_budget_counts_unlinked_scratch_while_child_holds_it(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            writer = Path(tmp) / "scratch"
+            writer.write_text(
+                f"#!{sys.executable}\nimport os, time\n"
+                "with open('staging/ephemeral', 'wb') as f:\n"
+                "    f.write(b'x' * (2 * 1024 * 1024)); f.flush()\n"
+                "    os.unlink('staging/ephemeral'); time.sleep(10)\n"
+            )
+            writer.chmod(0o700)
+            result, path = self.run_cli(writer, "--disk-mib", "2", "--wall-seconds", "2")
+        self.assertNotEqual(result.returncode, 0)
+        stage = json.loads(path.read_text())["stages"][-1]
+        self.assertIn("disk", stage["stop_reason"])
+        self.assertGreaterEqual(stage["sampled_run_tree_allocated_peak_bytes"], 2 * MIB)
+        self.assertFalse((path.parent / "staging" / "ephemeral").exists())
+
+    @unittest.skipUnless(os.environ.get("LONGFORM_SCALE_BINARY"), "needs compiled Rust harness")
+    def test_real_core_smoke_verifies_reopened_and_recovery_contents(self):
+        result, path = self.run_cli(os.environ["LONGFORM_SCALE_BINARY"],
+                                    profile=os.environ.get("LONGFORM_SCALE_PROFILE", "dev"))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        report = json.loads(path.read_text())
+        self.assertEqual(report["status"], "complete")
+        by_name = {stage["name"]: stage for stage in report["stages"]}
+        self.assertEqual(by_name["probe-002"]["metrics"]["history_rows"], 72)
+        self.assertEqual(by_name["probe-002"]["metrics"]["current_scalars"], 196608)
+        self.assertGreater(by_name["probe-002"]["peak_rss_kib"], 0)
+        self.assertEqual(by_name["json"]["metrics"]["result"], "within_limit")
+        recovered = by_name["restore-1"]["metrics"]
+        self.assertEqual(recovered["stale_error"], "restore_conflict")
+        self.assertEqual(recovered["reopened_history_rows"], 72)
+        self.assertEqual(recovered["snapshot_history_rows"], 73)
+        self.assertGreater(recovered["published_snapshot_bytes"], MIB)
+        self.assertTrue((path.parent / "backup-1.sqlite").is_file())
+
+
+    @unittest.skipUnless(os.environ.get("LONGFORM_SCALE_BINARY") and
+                         os.environ.get("LONGFORM_SCALE_BOUNDARY"), "needs explicit boundary opt-in")
+    def test_separate_sqlite_size_precheck_rejects_sparse_over_limit(self):
+        result, path = self.run_cli(os.environ["LONGFORM_SCALE_BINARY"],
+                                    profile=os.environ.get("LONGFORM_SCALE_PROFILE", "dev"),
+                                    mode="--sqlite-file-limit")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        report = json.loads(path.read_text())
+        self.assertEqual(report["mode"], "sqlite-file-limit")
+        self.assertEqual(report["status"], "complete")
+        stage = report["stages"][-1]
+        self.assertEqual(stage["name"], "sqlite-file-limit")
+        result = stage["metrics"]
+        self.assertEqual(result["oversized_candidate_bytes"], 536870913)
+        self.assertEqual(result["backend_error_code"], "limit_exceeded")
+        self.assertTrue(result["source_data_unchanged"])
+        self.assertTrue(result["existing_backup_byte_identical"])
+        candidate = stage["files_after"]["oversized-candidate.sqlite"]
+        self.assertEqual(candidate["logical_bytes"], 536870913)
+        self.assertLess(candidate["allocated_bytes"], 16 * MIB)
+
+
+if __name__ == "__main__":
+    unittest.main()

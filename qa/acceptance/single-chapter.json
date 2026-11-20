@@ -1,0 +1,176 @@
+{
+  "schema_version": 1,
+  "work": {
+    "title": "雾港校钟人",
+    "author": "原创验收样本"
+  },
+  "volume": {
+    "title": "晚潮"
+  },
+  "prior": {
+    "title": "铜牌初见",
+    "body": "缺齿月🌙\r\n刻在铜牌背面。钟先响一声，停三息，再响一声。潮簿上没写是谁挂的。"
+  },
+  "target": {
+    "title": "第二声钟",
+    "original_body": "弦栖伏在值守台前，听见雾里的钟。\n她翻到潮簿的空页，把铜牌压在纸角。",
+    "dirty_body": "弦栖把潮簿合了一半。\n（未保存：留着作者自己的句子🌒）"
+  },
+  "goal": "写明两声钟之间的停顿，抄录铜牌记号，不揭晓挂牌人。",
+  "materials": [
+    {
+      "key": "setting",
+      "kind": "setting",
+      "title": "雾港值守规则",
+      "fields": {
+        "rules": "钟响期间不得离开值守台；钟只响两声，中隔三息。"
+      }
+    },
+    {
+      "key": "character",
+      "kind": "character",
+      "title": "弦栖",
+      "fields": {
+        "identity": "夜班校钟人",
+        "goal": "只记亲眼所见，不猜署名。"
+      }
+    },
+    {
+      "key": "outline",
+      "kind": "outline",
+      "title": "二响小纲",
+      "fields": {
+        "content": "记下两次钟声，再把铜牌上的记号抄入潮簿。"
+      },
+      "chapter": "target"
+    },
+    {
+      "key": "foreshadow",
+      "kind": "foreshadow",
+      "title": "无名铜牌",
+      "fields": {
+        "setup": "铜牌背面刻着缺齿月🌙。",
+        "resolution": "本章只重现记号，暂不揭晓挂铜牌的人。"
+      },
+      "source": "prior",
+      "tracking_status": "planted"
+    }
+  ],
+  "occurrence": {
+    "material": "foreshadow",
+    "start": 0,
+    "end": 7,
+    "quote": "缺齿月🌙\r\n刻",
+    "role": "plant",
+    "note": "第一章已见的记号"
+  },
+  "citations": [
+    {
+      "entry": "setting",
+      "field_key": "rules",
+      "start": 4,
+      "end": 11,
+      "quote": "不得离开值守台",
+      "explanation": "核对值守边界"
+    },
+    {
+      "entry": "character",
+      "field_key": "goal",
+      "start": 7,
+      "end": 11,
+      "quote": "不猜署名",
+      "explanation": "延续人物记录习惯"
+    },
+    {
+      "entry": "outline",
+      "field_key": "content",
+      "start": 0,
+      "end": 6,
+      "quote": "记下两次钟声",
+      "explanation": "保留本章事件"
+    },
+    {
+      "entry": "foreshadow",
+      "field_key": "occurrence",
+      "start": 0,
+      "end": 7,
+      "quote": "缺齿月🌙\r\n刻",
+      "explanation": "从已登记引文找回铜牌记号"
+    },
+    {
+      "entry": "prior",
+      "field_key": "body",
+      "start": 0,
+      "end": 7,
+      "quote": "缺齿月🌙\r\n刻",
+      "explanation": "从前文交叉核对铜牌记号"
+    }
+  ],
+  "accepted": {
+    "body": "弦栖没有离开值守台。钟先响一声，隔三息又响一声。\r\n她翻过铜牌，在潮簿写下缺齿月🌙，没有填挂铜牌的人。",
+    "request_key": "clock-accept",
+    "reviews": [
+      {
+        "material": "setting",
+        "verdict": "conforms",
+        "note": "作者示例：两声钟响期间没有离台。"
+      },
+      {
+        "material": "character",
+        "verdict": "conforms",
+        "note": "作者示例：只记下看到的记号，不猜挂牌人。"
+      },
+      {
+        "material": "outline",
+        "verdict": "conforms",
+        "note": "作者示例：先写两次钟响，再抄记号。"
+      },
+      {
+        "material": "foreshadow",
+        "verdict": "conforms",
+        "note": "作者示例：重现记号，未揭晓挂牌人。"
+      }
+    ]
+  },
+  "rejected": {
+    "body": "第一声钟响时，弦栖离开值守台走到廊外。隔三息，钟又响一声。\r\n她翻过铜牌，在潮簿写下缺齿月🌙，没有填挂铜牌的人。",
+    "request_key": "clock-reject",
+    "reviews": [
+      {
+        "material": "setting",
+        "verdict": "conflict",
+        "note": "作者示例：第一声钟响时她离台走到廊外，违反值守规则。"
+      },
+      {
+        "material": "character",
+        "verdict": "conforms",
+        "note": "作者示例：只记下看到的记号，不猜挂牌人。"
+      },
+      {
+        "material": "outline",
+        "verdict": "conforms",
+        "note": "作者示例：先写两次钟响，再抄记号。"
+      },
+      {
+        "material": "foreshadow",
+        "verdict": "conforms",
+        "note": "作者示例：重现记号，未揭晓挂牌人。"
+      }
+    ]
+  },
+  "rework": {
+    "pending_body": "弦栖守在台前，听完中隔三息的两声钟。\r\n她把缺齿月🌙抄进潮簿，在记号旁留了空格。",
+    "fresh_body": "弦栖守着值守台。第一声落下，她数了三息，才听见第二声。\r\n她把铜牌翻到背面，照着缺齿月🌙在潮簿画了一笔，署名一栏仍空着。"
+  },
+  "provenance": {
+    "revised_rule": "钟响期间不得离开值守台；钟只响两声，中隔五息。",
+    "prior_append": "\r\n值守簿的边角沾了一点潮泥。",
+    "later_volume": "退潮",
+    "ordinary_card_title": "无名铜牌（索引）"
+  },
+  "export": {
+    "visible_text": "弦栖没有离开值守台。钟先响一声，隔三息又响一声。\r\n她翻过铜牌，在潮簿写下缺齿月🌙，没有填挂铜牌的人。\r\n\r\n",
+    "bom": true,
+    "newline": "crlf"
+  }
+}

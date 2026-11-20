@@ -1,0 +1,388 @@
+{
+  "status": "complete",
+  "profile": "release",
+  "utc_start": "2026-11-20T07:23:36Z",
+  "device": {
+    "platform": "Linux-6.18.57-x86_64-with-glibc2.41",
+    "cpu_model": "AMD EPYC 9V74 80-Core Processor",
+    "visible_logical_cpus": 9,
+    "affinity": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8
+    ],
+    "proc_mem_total_kib": 10206472,
+    "cgroup_membership": "0::/",
+    "visible_cgroup_memory_max": null,
+    "visible_cgroup_cpu_max": null,
+    "filesystem_total_bytes": 67586535424,
+    "filesystem_initial_free_bytes": 57570357248
+  },
+  "limits": {
+    "wall_seconds": 900,
+    "disk_bytes": 2147483648,
+    "min_free_bytes": 2147483648,
+    "stage_address_space_bytes": 2147483648,
+    "disk_guard_margin_bytes": 67108864,
+    "poll_seconds": 0.05
+  },
+  "wall_seconds": 139.9413120019999,
+  "baseline_application_revision": "bedb343",
+  "benchmark_source_sha256": {
+    "qa/longform-scale/src/main.rs": "118798a2a0dcff8604dc1a6bcc1799179dfc3f7a852563a04c44fafdcba81fa9",
+    "qa/longform-scale/src/large.rs": "c60736361bf5505e034c90d5d18ee1753a7ade5fc8aabf8fde5ae52b1571f579",
+    "qa/longform-scale/Cargo.lock": "351a2d7f37a3e1428c3a254895d667a0f7ed38cd2b00da68d8cdb3def817dcae",
+    "scripts/longform_scale.py": "4de22e23ef407c9b09a910e1391396c3f7f9b9d4dbba6ee084d1fa7361593e89"
+  },
+  "measurements": [
+    {
+      "name": "large-seed",
+      "status": "complete",
+      "wall_seconds": 129.978959305,
+      "peak_rss_kib": 58336,
+      "sampled_run_tree_charged_peak_bytes": 181456896,
+      "metrics": {
+        "deep_extra_versions_per_hot_chapter": 64,
+        "deep_hot_chapters": 24,
+        "fixtures": [
+          {
+            "case": "300-shallow",
+            "chapter_count": 300,
+            "closed_db_file_bytes": 15171584,
+            "current_scalars": 2457600,
+            "current_utf8_bytes": 7252425,
+            "history_rows": 600,
+            "history_utf8_bytes": 7252425,
+            "seed_ms": 3320.241402,
+            "volume_count": 3
+          },
+          {
+            "case": "1000-shallow",
+            "chapter_count": 1000,
+            "closed_db_file_bytes": 50020352,
+            "current_scalars": 8192000,
+            "current_utf8_bytes": 24174750,
+            "history_rows": 2000,
+            "history_utf8_bytes": 24174750,
+            "seed_ms": 36955.69021,
+            "volume_count": 3
+          },
+          {
+            "case": "1000-deep",
+            "chapter_count": 1000,
+            "closed_db_file_bytes": 88358912,
+            "current_scalars": 8192000,
+            "current_utf8_bytes": 24174750,
+            "history_rows": 3536,
+            "history_utf8_bytes": 61307166,
+            "seed_ms": 89185.91799700001,
+            "volume_count": 3
+          }
+        ]
+      }
+    },
+    {
+      "name": "300-shallow-1",
+      "status": "complete",
+      "wall_seconds": 0.5111290229997394,
+      "peak_rss_kib": 23720,
+      "sampled_run_tree_charged_peak_bytes": 229691392,
+      "metrics": {
+        "backup_bytes": 15196160,
+        "backup_ms": 40.984413999999994,
+        "case": "300-shallow",
+        "full_load_ms": 21.137703000000002,
+        "get_chapter_ms": [
+          0.07171799999999999,
+          0.052268999999999996,
+          0.038958
+        ],
+        "history_detail_ms": 0.06633,
+        "history_page_ms": 0.093891,
+        "history_page_rows": 2,
+        "live_db_wal_shm_at_backup": [
+          15171584,
+          78312,
+          32768
+        ],
+        "open_ms": 1.3272620000000002,
+        "outline_ms": 2.765722,
+        "recovery_bytes": 15224832,
+        "restore_commit_ms": 138.225282,
+        "restore_prepare_ms": 147.342009,
+        "round": 1,
+        "save_ms": 20.388844
+      }
+    },
+    {
+      "name": "1000-shallow-1",
+      "status": "complete",
+      "wall_seconds": 1.5124536670000452,
+      "peak_rss_kib": 57288,
+      "sampled_run_tree_charged_peak_bytes": 404054016,
+      "metrics": {
+        "backup_bytes": 50044928,
+        "backup_ms": 127.926274,
+        "case": "1000-shallow",
+        "full_load_ms": 191.857844,
+        "get_chapter_ms": [
+          0.133781,
+          0.049464,
+          0.038448
+        ],
+        "history_detail_ms": 0.06664999999999999,
+        "history_page_ms": 0.090677,
+        "history_page_rows": 2,
+        "live_db_wal_shm_at_backup": [
+          50020352,
+          78312,
+          32768
+        ],
+        "open_ms": 1.351518,
+        "outline_ms": 7.365455,
+        "recovery_bytes": 50069504,
+        "restore_commit_ms": 445.517961,
+        "restore_prepare_ms": 440.040012,
+        "round": 1,
+        "save_ms": 57.528471999999994
+      }
+    },
+    {
+      "name": "1000-deep-1",
+      "status": "complete",
+      "wall_seconds": 1.8963937420003276,
+      "peak_rss_kib": 58872,
+      "sampled_run_tree_charged_peak_bytes": 595939328,
+      "metrics": {
+        "backup_bytes": 88383488,
+        "backup_ms": 163.972518,
+        "case": "1000-deep",
+        "full_load_ms": 60.948144,
+        "get_chapter_ms": [
+          0.078148,
+          0.038979,
+          0.283688
+        ],
+        "history_detail_ms": 0.068023,
+        "history_page_ms": 0.127713,
+        "history_page_rows": 50,
+        "live_db_wal_shm_at_backup": [
+          88358912,
+          90672,
+          32768
+        ],
+        "open_ms": 1.254963,
+        "outline_ms": 7.133535,
+        "recovery_bytes": 88412160,
+        "restore_commit_ms": 746.836166,
+        "restore_prepare_ms": 555.457852,
+        "round": 1,
+        "save_ms": 56.375159000000004
+      }
+    },
+    {
+      "name": "300-shallow-2",
+      "status": "complete",
+      "wall_seconds": 0.3318660989998534,
+      "peak_rss_kib": 23692,
+      "sampled_run_tree_charged_peak_bytes": 217407488,
+      "metrics": {
+        "backup_bytes": 15196160,
+        "backup_ms": 33.825109,
+        "case": "300-shallow",
+        "full_load_ms": 18.832023,
+        "get_chapter_ms": [
+          0.053961,
+          0.038127,
+          0.031868
+        ],
+        "history_detail_ms": 0.064577,
+        "history_page_ms": 0.080922,
+        "history_page_rows": 2,
+        "live_db_wal_shm_at_backup": [
+          15171584,
+          78312,
+          32768
+        ],
+        "open_ms": 1.282554,
+        "outline_ms": 1.869559,
+        "recovery_bytes": 15224832,
+        "restore_commit_ms": 87.45639600000001,
+        "restore_prepare_ms": 111.70031499999999,
+        "round": 2,
+        "save_ms": 20.021807
+      }
+    },
+    {
+      "name": "1000-shallow-2",
+      "status": "complete",
+      "wall_seconds": 0.963318053999501,
+      "peak_rss_kib": 57368,
+      "sampled_run_tree_charged_peak_bytes": 404127744,
+      "metrics": {
+        "backup_bytes": 50044928,
+        "backup_ms": 83.91998000000001,
+        "case": "1000-shallow",
+        "full_load_ms": 57.782561,
+        "get_chapter_ms": [
+          0.059099,
+          0.038889,
+          0.033691
+        ],
+        "history_detail_ms": 0.06752100000000001,
+        "history_page_ms": 0.087652,
+        "history_page_rows": 2,
+        "live_db_wal_shm_at_backup": [
+          50020352,
+          78312,
+          32768
+        ],
+        "open_ms": 1.533893,
+        "outline_ms": 6.226889,
+        "recovery_bytes": 50069504,
+        "restore_commit_ms": 279.342987,
+        "restore_prepare_ms": 330.984629,
+        "round": 2,
+        "save_ms": 53.979977999999996
+      }
+    },
+    {
+      "name": "1000-deep-2",
+      "status": "complete",
+      "wall_seconds": 1.8178946169991832,
+      "peak_rss_kib": 58768,
+      "sampled_run_tree_charged_peak_bytes": 595918848,
+      "metrics": {
+        "backup_bytes": 88383488,
+        "backup_ms": 178.860919,
+        "case": "1000-deep",
+        "full_load_ms": 51.272947,
+        "get_chapter_ms": [
+          0.07274900000000001,
+          0.038338,
+          0.03302
+        ],
+        "history_detail_ms": 0.165079,
+        "history_page_ms": 0.143116,
+        "history_page_rows": 50,
+        "live_db_wal_shm_at_backup": [
+          88358912,
+          78312,
+          32768
+        ],
+        "open_ms": 1.070594,
+        "outline_ms": 6.823989,
+        "recovery_bytes": 88408064,
+        "restore_commit_ms": 715.4128029999999,
+        "restore_prepare_ms": 582.27097,
+        "round": 2,
+        "save_ms": 99.574333
+      }
+    },
+    {
+      "name": "300-shallow-3",
+      "status": "complete",
+      "wall_seconds": 0.32296295700052724,
+      "peak_rss_kib": 23700,
+      "sampled_run_tree_charged_peak_bytes": 225951744,
+      "metrics": {
+        "backup_bytes": 15196160,
+        "backup_ms": 25.154622,
+        "case": "300-shallow",
+        "full_load_ms": 17.175776,
+        "get_chapter_ms": [
+          0.062304000000000005,
+          0.036074,
+          0.033821
+        ],
+        "history_detail_ms": 0.06718199999999999,
+        "history_page_ms": 0.104047,
+        "history_page_rows": 2,
+        "live_db_wal_shm_at_backup": [
+          15171584,
+          78312,
+          32768
+        ],
+        "open_ms": 0.953118,
+        "outline_ms": 2.090754,
+        "recovery_bytes": 15224832,
+        "restore_commit_ms": 114.77875499999999,
+        "restore_prepare_ms": 92.868747,
+        "round": 3,
+        "save_ms": 17.23744
+      }
+    },
+    {
+      "name": "1000-shallow-3",
+      "status": "complete",
+      "wall_seconds": 0.9482570300006046,
+      "peak_rss_kib": 57424,
+      "sampled_run_tree_charged_peak_bytes": 404103168,
+      "metrics": {
+        "backup_bytes": 50044928,
+        "backup_ms": 75.93011800000001,
+        "case": "1000-shallow",
+        "full_load_ms": 75.922136,
+        "get_chapter_ms": [
+          0.36938699999999997,
+          0.055324,
+          0.048533
+        ],
+        "history_detail_ms": 0.115064,
+        "history_page_ms": 0.105309,
+        "history_page_rows": 2,
+        "live_db_wal_shm_at_backup": [
+          50020352,
+          78312,
+          32768
+        ],
+        "open_ms": 1.183995,
+        "outline_ms": 18.664562,
+        "recovery_bytes": 50069504,
+        "restore_commit_ms": 275.756473,
+        "restore_prepare_ms": 276.011218,
+        "round": 3,
+        "save_ms": 57.605929
+      }
+    },
+    {
+      "name": "1000-deep-3",
+      "status": "complete",
+      "wall_seconds": 1.6352738679997856,
+      "peak_rss_kib": 58936,
+      "sampled_run_tree_charged_peak_bytes": 596025344,
+      "metrics": {
+        "backup_bytes": 88387584,
+        "backup_ms": 153.13205399999998,
+        "case": "1000-deep",
+        "full_load_ms": 57.669795,
+        "get_chapter_ms": [
+          0.08650100000000001,
+          0.098899,
+          0.047331
+        ],
+        "history_detail_ms": 0.069645,
+        "history_page_ms": 0.113641,
+        "history_page_rows": 50,
+        "live_db_wal_shm_at_backup": [
+          88358912,
+          94792,
+          32768
+        ],
+        "open_ms": 1.157276,
+        "outline_ms": 8.368413,
+        "recovery_bytes": 88412160,
+        "restore_commit_ms": 630.4403480000001,
+        "restore_prepare_ms": 555.28804,
+        "round": 3,
+        "save_ms": 58.479988
+      }
+    }
+  ]
+}

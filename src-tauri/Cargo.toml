@@ -1,0 +1,50 @@
+[package]
+name = "novel_core"
+version = "0.1.0"
+edition = "2021"
+default-run = "mojuan"
+[lib]
+path = "src/lib.rs"
+[dependencies]
+rusqlite = { version = "=0.41.0", features = ["bundled", "backup", "hooks", "limits", "fallible_uint"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+fs2 = "0.4"
+uuid = { version = "1", features = ["v4"] }
+
+[features]
+default = []
+desktop = ["dep:tauri", "dep:tauri-plugin-dialog", "dep:tauri-plugin-single-instance", "dep:tauri-build"]
+
+[target.'cfg(target_os = "windows")'.dependencies]
+tauri = { version = "2", optional = true }
+tauri-plugin-dialog = { version = "2", optional = true }
+tauri-plugin-single-instance = { version = "2", optional = true }
+windows-sys = { version = "=0.61.2", features = [
+    "Win32_Foundation", "Win32_Security_Authorization", "Win32_Storage_FileSystem",
+    "Win32_System_IO", "Win32_System_Pipes", "Win32_System_Threading",
+] }
+
+[build-dependencies]
+tauri-build = { version = "2", optional = true }
+
+[[bin]]
+name = "mojuan"
+path = "src/main.rs"
+required-features = ["desktop"]
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[[bin]]
+name = "mojuan-agent"
+path = "src/bin/mojuan-agent.rs"
+
+[[bin]]
+name = "mojuan-agent-host"
+path = "src/bin/mojuan-agent-host.rs"
+
+[[test]]
+name = "stdio_process"
+path = "tests/stdio_process.rs"
+harness = false
