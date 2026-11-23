@@ -11,3 +11,4 @@ qa-output/
 .superpowers/
 
 /.codegraph/
+/src-tauri/gen/schemas/

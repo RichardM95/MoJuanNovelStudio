@@ -15,6 +15,12 @@ import {
   Save,
   PenLine,
   Search,
+  ListChecks,
+  Replace,
+  Flag,
+  Library,
+  Bot,
+  History,
 } from "lucide-react";
 import type { API, LibraryState, Chapter, Command } from "./types";
 import { SAVE_UNKNOWN, SaveQueue } from "./saveQueue";
@@ -501,7 +507,7 @@ export default function App({ api }: { api: API }) {
     <div className="app">
       <aside className="rail" inert={foreshadowOpen || !!writingTarget}>
         <div className="brand">
-          <span className="seal">墨</span>
+          <img className="brand-logo" src="/mojuan-logo.png" alt="" />
           <span>
             墨卷<small>小说写作</small>
           </span>
@@ -570,7 +576,9 @@ export default function App({ api }: { api: API }) {
           <span className="local-dot">本地书库 · 离线写作</span>
         </div>
       </aside>
-      <main inert={foreshadowOpen || !!writingTarget}>
+      <main
+        className={book ? "editor-main" : "shelf-main"}
+        inert={foreshadowOpen || !!writingTarget}>
         {api.writing && api.materials && decisionScopes.size > 0 && (
           <details className="writing-recovery-links">
             <summary>待核对的正文决定</summary>
@@ -596,22 +604,26 @@ export default function App({ api }: { api: API }) {
             </ul>
           </details>
         )}
-        {error && (
-          <div role="alert" className="error">
-            {error}
-            <button aria-label="关闭错误提示" onClick={() => setError("")}>
-              ×
-            </button>
+        {error || notice ? (
+          <div className="toasts">
+            {error && (
+              <div role="alert" className="error">
+                {error}
+                <button aria-label="关闭错误提示" onClick={() => setError("")}>
+                  ×
+                </button>
+              </div>
+            )}
+            {notice && (
+              <div role="status" className="notice">
+                {notice}
+                <button aria-label="关闭提示" onClick={() => setNotice("")}>
+                  ×
+                </button>
+              </div>
+            )}
           </div>
-        )}
-        {notice && (
-          <div role="status" className="notice">
-            {notice}
-            <button aria-label="关闭提示" onClick={() => setNotice("")}>
-              ×
-            </button>
-          </div>
-        )}
+        ) : null}
         {!book && trash ? (
           <RecycleBin
             data={data}
@@ -633,27 +645,29 @@ export default function App({ api }: { api: API }) {
                     : `${rows.length} 部作品，让故事慢慢生长。`}
                 </p>
               </div>
-              {!trash && (
-                <button
-                  className="primary"
-                  disabled={busy || !ready}
-                  onClick={() =>
-                    titleForm(
-                      "新增作品",
-                      "",
-                      async (title, author) => {
-                        await mutate({ type: "create_book", title, author });
-                      },
-                      "",
-                    )
-                  }
-                >
-                  <Plus size={18} />
-                  新增作品
-                </button>
-              )}
-              {!trash && api.txtImport && <button disabled={busy || !ready} onClick={() => void run(async () => {setImportOpen("txt");})}>导入TXT</button>}
-              {!trash && api.projectImport && <button disabled={busy || !ready} onClick={() => void run(async () => {setImportOpen("project");})}>导入作品文件夹</button>}
+              <div className="shelf-actions">
+                {!trash && api.txtImport && <button disabled={busy || !ready} onClick={() => void run(async () => {setImportOpen("txt");})}>导入TXT</button>}
+                {!trash && api.projectImport && <button disabled={busy || !ready} onClick={() => void run(async () => {setImportOpen("project");})}>导入作品文件夹</button>}
+                {!trash && (
+                  <button
+                    className="primary"
+                    disabled={busy || !ready}
+                    onClick={() =>
+                      titleForm(
+                        "新增作品",
+                        "",
+                        async (title, author) => {
+                          await mutate({ type: "create_book", title, author });
+                        },
+                        "",
+                      )
+                    }
+                  >
+                    <Plus size={18} />
+                    新增作品
+                  </button>
+                )}
+              </div>
             </header>
             <label className="search">
               <Search size={17} />
@@ -777,71 +791,6 @@ export default function App({ api }: { api: API }) {
               >
                 <ArrowLeft size={19} />
               </button>
-              {api.tasks && (
-                <button
-                  disabled={busy}
-                  onClick={() =>
-                    void run(async () => {
-                      setTasksOpen(true);
-                    })
-                  }
-                >
-                  检查任务
-                </button>
-              )}
-              {api.replace && (
-                <button disabled={busy} onClick={() => void run(async () => {
-                  replaceTarget.current = {bookId: bookId!, chapterId};
-                  setReplaceOpen(true);
-                })}>批量替换</button>
-              )}
-              {api.searchBook && (
-                <button
-                  disabled={busy}
-                  onClick={() =>
-                    void run(async () => {
-                      setBookSearchOpen(true);
-                    })
-                  }
-                >
-                  书内搜索
-                </button>
-              )}
-              {api.foreshadow && (
-                <button disabled={busy} onClick={() => void run(async () => {
-                  // run() has flushed pending prose before either occurrence review path opens.
-                  setForeshadowOpen(true);
-                })}>全书伏笔</button>
-              )}
-              {api.materials && (
-                <button
-                  disabled={busy}
-                  onClick={() =>
-                    void run(async () => {
-                      setInitialMaterialId(undefined);
-                      materialsOpenRef.current = true;
-                      setMaterialsOpen(true);
-                    })
-                  }
-                >
-                  创作资料
-                </button>
-              )}
-              {api.agentAccess && (
-                <button disabled={busy} onClick={() => void run(async () => setAgentAccessOpen(true))}>智能体连接</button>
-              )}
-              {api.workflow && (
-                <button
-                  disabled={busy}
-                  onClick={() =>
-                    void run(async () => {
-                      setReview(true);
-                    })
-                  }
-                >
-                  改稿与历史
-                </button>
-              )}
               <div className="work-title">
                 <strong>{book.title}</strong>
                 <span>{book.author || "未署名"}</span>
@@ -858,6 +807,77 @@ export default function App({ api }: { api: API }) {
                 导出 TXT
               </button>
             </header>
+            <nav className="editor-tools" aria-label="写作工具">
+              {api.tasks && (
+                <button
+                  disabled={busy}
+                  onClick={() =>
+                    void run(async () => {
+                      setTasksOpen(true);
+                    })
+                  }
+                >
+                  <ListChecks size={15} />
+                  检查任务
+                </button>
+              )}
+              {api.replace && (
+                <button disabled={busy} onClick={() => void run(async () => {
+                  replaceTarget.current = {bookId: bookId!, chapterId};
+                  setReplaceOpen(true);
+                })}><Replace size={15} />批量替换</button>
+              )}
+              {api.searchBook && (
+                <button
+                  disabled={busy}
+                  onClick={() =>
+                    void run(async () => {
+                      setBookSearchOpen(true);
+                    })
+                  }
+                >
+                  <Search size={15} />
+                  书内搜索
+                </button>
+              )}
+              {api.foreshadow && (
+                <button disabled={busy} onClick={() => void run(async () => {
+                  // run() has flushed pending prose before either occurrence review path opens.
+                  setForeshadowOpen(true);
+                })}><Flag size={15} />全书伏笔</button>
+              )}
+              {api.materials && (
+                <button
+                  disabled={busy}
+                  onClick={() =>
+                    void run(async () => {
+                      setInitialMaterialId(undefined);
+                      materialsOpenRef.current = true;
+                      setMaterialsOpen(true);
+                    })
+                  }
+                >
+                  <Library size={15} />
+                  创作资料
+                </button>
+              )}
+              {api.agentAccess && (
+                <button disabled={busy} onClick={() => void run(async () => setAgentAccessOpen(true))}><Bot size={15} />智能体连接</button>
+              )}
+              {api.workflow && (
+                <button
+                  disabled={busy}
+                  onClick={() =>
+                    void run(async () => {
+                      setReview(true);
+                    })
+                  }
+                >
+                  <History size={15} />
+                  改稿与历史
+                </button>
+              )}
+            </nav>
             <div className="writing-layout">
               <aside className="directory">
                 <div className="directory-title">
@@ -1049,42 +1069,46 @@ export default function App({ api }: { api: API }) {
                         <Trash2 size={15} />
                         删除章节
                       </button>
-                      <label>
-                        所属卷{" "}
-                        <select
-                          aria-label="移动章节到卷"
-                          value={chapter.volume_id}
-                          disabled={busy}
-                          onChange={(e) => {
-                            const volume_id = e.target.value;
-                            void run(async () => {
-                              await mutate({
-                                type: "transfer_chapter",
-                                id: chapter.id,
-                                volume_id,
+                      <div className="paper-toolbar-group">
+                        <label>
+                          所属卷{" "}
+                          <select
+                            aria-label="移动章节到卷"
+                            value={chapter.volume_id}
+                            disabled={busy}
+                            onChange={(e) => {
+                              const volume_id = e.target.value;
+                              void run(async () => {
+                                await mutate({
+                                  type: "transfer_chapter",
+                                  id: chapter.id,
+                                  volume_id,
+                                });
                               });
-                            });
-                          }}
-                        >
-                          {volumes.map((v) => (
-                            <option key={v.id} value={v.id}>
-                              {v.title}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <label>
-                        字号{" "}
-                        <select
-                          aria-label="正文字号"
-                          value={font}
-                          onChange={(e) => setFont(Number(e.target.value))}
-                        >
-                          {[16, 18, 20, 24, 28].map((n) => (
-                            <option key={n}>{n}</option>
-                          ))}
-                        </select>
-                      </label>
+                            }}
+                          >
+                            {volumes.map((v) => (
+                              <option key={v.id} value={v.id}>
+                                {v.title}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label>
+                          字号{" "}
+                          <select
+                            aria-label="正文字号"
+                            value={font}
+                            onChange={(e) => setFont(Number(e.target.value))}
+                          >
+                            {[16, 18, 20, 24, 28].map((n) => (
+                              <option key={n}>{n}</option>
+                            ))}
+                          </select>
+                        </label>
+                        {api.writing && api.materials && <button onClick={openWriting} disabled={busy}>写作约束</button>}
+                        {api.split && <button onClick={splitChapter} disabled={busy}>拆分章节</button>}
+                      </div>
                     </div>
                     <button
                       className="chapter-heading"
@@ -1101,8 +1125,6 @@ export default function App({ api }: { api: API }) {
                       {chapter.title}
                       <PenLine size={16} />
                     </button>
-                    {api.writing && api.materials && <button onClick={openWriting} disabled={busy}>写作约束</button>}
-                    {api.split && <button onClick={splitChapter} disabled={busy}>拆分章节</button>}
                     <textarea
                       ref={editor}
                       spellCheck={false}

@@ -4,14 +4,16 @@
 
 ## 下载
 
-目前提供 0.1.0 Windows x64 预览版。下载 `.exe` 后双击运行，按提示安装。
+目前提供 0.1.1 Windows x64 预览版。下载 `.exe` 后双击运行，按提示安装。
 
-[下载 Windows x64 安装包](https://github.com/RichardM95/MoJuanNovelStudio/releases/download/v0.1.0/MoJuanNovelStudio-v0.1.0-windows-x64-setup.exe) · [查看发布说明](https://github.com/RichardM95/MoJuanNovelStudio/releases/tag/v0.1.0)
+[下载 Windows x64 安装包](https://github.com/RichardM95/MoJuanNovelStudio/releases/download/v0.1.1/MoJuanNovelStudio-v0.1.1-windows-x64-setup.exe) · [查看发布说明](https://github.com/RichardM95/MoJuanNovelStudio/releases/tag/v0.1.1)
 
 ## 开始写作
 
+首次打开墨卷时，你会看到一个空书架。
+
 - **从头写一本书**：在书架点「新增作品」，填好书名，再添加卷和章节。
-- **接着写已有的稿子**：在书架点「导入TXT」，可按标题分章，也可把全文放进一章。正文、设定和大纲分散在多个文件里时，可以用「导入作品文件夹」，先预览，再选要导入的内容。
+- **接着写已有的稿子**：在书架点「导入TXT」，可以按标题分章，也可以把全文放进一章。正文、设定和大纲分散在多个文件里时，点「导入作品文件夹」，预览后选择要导入的内容。
 - **继续修改**：正文会自动保存，也可以按 `Ctrl+S`。需要找回旧稿时，在作品内打开「改稿与历史 → 章节历史」，对照后选择要恢复的版本。
 
 ## 写长篇时可以用到

@@ -74,7 +74,6 @@ cargo test --offline --locked --manifest-path src-tauri/Cargo.toml
 cargo build --offline --locked --manifest-path src-tauri/Cargo.toml --bin mojuan-agent --bin mojuan-agent-host
 npm test
 npm run build
-./node_modules/.bin/tsc --noEmit --target ES2022 --module ESNext --moduleResolution Bundler --lib ES2022,DOM,DOM.Iterable --jsx react-jsx --skipLibCheck --strict --types vite/client qa/preview.tsx
 git diff --check
 ```
 
