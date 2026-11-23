@@ -1,9 +1,12 @@
 name: Windows preview release
 
 on:
-  push:
-    tags:
-      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing version tag, such as v0.1.0
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -11,9 +14,12 @@ permissions:
 jobs:
   release:
     runs-on: windows-2025
+    env:
+      RELEASE_TAG: ${{ inputs.tag }}
     steps:
       - uses: actions/checkout@v6
         with:
+          ref: refs/tags/${{ inputs.tag }}
           persist-credentials: false
       - uses: actions/setup-node@v6
         with:
@@ -22,7 +28,7 @@ jobs:
       - name: Build and test Windows installer
         run: |
           $config = Get-Content -Raw src-tauri/tauri.conf.json | ConvertFrom-Json
-          if ($env:GITHUB_REF_NAME -ne "v$($config.version)") {
+          if ($env:RELEASE_TAG -cne "v$($config.version)") {
             throw "The release tag must match the app version $($config.version)."
           }
           rustup default stable
@@ -36,7 +42,7 @@ jobs:
           if ($installers.Count -ne 1 -or $installers[0].Length -eq 0) {
             throw 'Expected one non-empty Windows x64 installer.'
           }
-          $asset = "MoJuanNovelStudio-$($env:GITHUB_REF_NAME)-windows-x64-setup.exe"
+          $asset = "MoJuanNovelStudio-$($env:RELEASE_TAG)-windows-x64-setup.exe"
           Copy-Item -LiteralPath $installers[0].FullName -Destination $asset
           $notes = 'Windows x64 预发布版。下载下方的 .exe 安装包并运行。安装、升级和卸载流程仍待实机验证。'
-          gh release create $env:GITHUB_REF_NAME $asset --repo $env:GITHUB_REPOSITORY --verify-tag --prerelease --title "墨卷 $($env:GITHUB_REF_NAME) Windows 预览版" --notes $notes
+          gh release create $env:RELEASE_TAG $asset --repo $env:GITHUB_REPOSITORY --verify-tag --prerelease --title "墨卷 $($env:RELEASE_TAG) Windows 预览版" --notes $notes
