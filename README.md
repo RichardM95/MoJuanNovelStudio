@@ -2,7 +2,11 @@
 
 墨卷是一款 Windows 小说写作软件。你可以在同一个作品里写正文、排卷章、整理人物和设定，也能查找前文、回看旧稿。作品保存在自己的电脑上，写作时可以离线使用。
 
-目前为 0.1.0 源码预览版，可在 Windows 上从源码构建安装包。安装、升级和卸载流程仍待实机验证。
+## 下载
+
+目前提供 0.1.0 Windows x64 预览版。下载 `.exe` 后双击运行，按提示安装。
+
+[下载 Windows x64 安装包](https://github.com/RichardM95/MoJuanNovelStudio/releases/download/v0.1.0/MoJuanNovelStudio-v0.1.0-windows-x64-setup.exe) · [查看发布说明](https://github.com/RichardM95/MoJuanNovelStudio/releases/tag/v0.1.0)
 
 ## 开始写作
 
