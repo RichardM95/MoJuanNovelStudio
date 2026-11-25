@@ -311,7 +311,12 @@ export default function ImportPanel({
       >
         <header>
           <h2>导入TXT新作品</h2>
-          <button aria-label="关闭导入面板" disabled={blocked} onClick={close}>
+          <button
+            className="ghost"
+            aria-label="关闭导入面板"
+            disabled={blocked}
+            onClick={close}
+          >
             关闭
           </button>
         </header>
@@ -336,7 +341,7 @@ export default function ImportPanel({
           </button>
         </div>
         <p className="import-hint">
-          仅UTF-8（可带BOM），文件最多16 MiB、单章最多10 MiB；每次导入都会新建作品，不会自动合并。按标题分章识别独立的“第…卷/章”行，标题后文字需空白分隔；标题行转为名称，其余正文和换行原样保留。若识别不合适可改为全文单章；超过10MiB仍需合理分章。
+          仅UTF-8（可带BOM），文件最多16 MiB、单章最多10 MiB；每次导入都会新建作品，不会自动合并。按标题分章识别独立的“第…卷/部/篇”“第…章/回/节/集/话”行（可带“正文”前缀，标题文字可用空白或冒号分隔），以及序章、楔子、前言、番外等标题行；标题行转为名称，其余正文和换行原样保留。若识别不合适可改为全文单章；超过10MiB仍需合理分章。
         </p>
         <div className="import-controls">
           <label>
@@ -415,6 +420,7 @@ export default function ImportPanel({
               </section>
             )}
             <button
+              className="primary"
               disabled={
                 blocked || expired || !preview.total_chapters || confirm
               }
@@ -429,8 +435,11 @@ export default function ImportPanel({
                   ），{preview.volumes.length}卷、{preview.total_chapters}
                   章？不会覆盖已有作品。
                 </p>
-                <button onClick={() => setConfirm(false)}>返回预览</button>
+                <button className="ghost" onClick={() => setConfirm(false)}>
+                  返回预览
+                </button>
                 <button
+                  className="primary"
                   disabled={blocked || expired}
                   onClick={() => void commit()}
                 >

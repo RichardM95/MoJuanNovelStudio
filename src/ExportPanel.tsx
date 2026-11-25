@@ -329,7 +329,7 @@ export default function ExportPanel({
               </p>
             )}
             <pre aria-label="导出内容预览">{preview.text}</pre>
-            <button onClick={save} disabled={busy}>
+            <button className="primary" onClick={save} disabled={busy}>
               保存TXT
             </button>
           </>

@@ -26,6 +26,15 @@ const initial: LibraryState = {
       sort_order: 0,
       deleted_at: null,
     },
+    {
+      id: "d",
+      volume_id: "v2",
+      title: "远行",
+      body: "",
+      revision: 0,
+      sort_order: 0,
+      deleted_at: null,
+    },
   ],
 };
 function setup(fail = false) {
@@ -164,11 +173,164 @@ describe("writing workspace", () => {
       await screen.findByRole("button", { name: "打开 远山来信" }),
     );
     await screen.findByRole("textbox", { name: "章节正文" });
-    fireEvent.click(screen.getByRole("button", { name: "删除卷 归途" }));
+    fireEvent.click(screen.getByRole("button", { name: "卷操作 归途" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "删除卷" }));
     fireEvent.click(screen.getByRole("button", { name: "确认" }));
     await waitFor(() =>
       expect(screen.queryByRole("textbox", { name: "章节正文" })).toBeNull(),
     );
     expect(screen.queryByRole("button", { name: "第1章 初见" })).toBeNull();
+    expect(screen.getByRole("button", { name: "第1章 远行" })).toBeTruthy();
+  });
+  it("renames a chapter inline from the directory menu", async () => {
+    const api = setup();
+    fireEvent.click(
+      await screen.findByRole("button", { name: "打开 远山来信" }),
+    );
+    await screen.findByRole("textbox", { name: "章节正文" });
+    fireEvent.click(screen.getByRole("button", { name: "章节操作 初见" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "重命名" }));
+    const input = screen.getByRole("textbox", { name: "修改章名" });
+    fireEvent.change(input, { target: { value: "重逢" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    await waitFor(() =>
+      expect(api.apply).toHaveBeenCalledWith({
+        type: "rename_chapter",
+        id: "c",
+        title: "重逢",
+      }),
+    );
+  });
+  it("moves a chapter to another volume from the directory menu", async () => {
+    const api = setup();
+    fireEvent.click(
+      await screen.findByRole("button", { name: "打开 远山来信" }),
+    );
+    await screen.findByRole("textbox", { name: "章节正文" });
+    fireEvent.click(screen.getByRole("button", { name: "章节操作 初见" }));
+    fireEvent.click(
+      await screen.findByRole("menuitem", { name: "移动到卷 远方" }),
+    );
+    await waitFor(() =>
+      expect(api.apply).toHaveBeenCalledWith({
+        type: "place_chapter",
+        id: "c",
+        volume_id: "v2",
+        before_id: null,
+      }),
+    );
+  });
+  it("deletes a chapter from its row without closing the current editor", async () => {
+    const api = setup();
+    fireEvent.click(
+      await screen.findByRole("button", { name: "打开 远山来信" }),
+    );
+    await screen.findByRole("textbox", { name: "章节正文" });
+    fireEvent.click(screen.getByRole("button", { name: "章节操作 远行" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "删除章节" }));
+    fireEvent.click(screen.getByRole("button", { name: "确认" }));
+    await waitFor(() =>
+      expect(api.apply).toHaveBeenCalledWith({
+        type: "trash_chapter",
+        id: "d",
+      }),
+    );
+    expect(screen.getByRole("textbox", { name: "章节正文" })).toBeTruthy();
+  });
+  it("opens the directory menu from a right click", async () => {
+    setup();
+    fireEvent.click(
+      await screen.findByRole("button", { name: "打开 远山来信" }),
+    );
+    await screen.findByRole("textbox", { name: "章节正文" });
+    const row = screen.getByRole("button", { name: "第1章 初见" }).closest(
+      ".chapter-row",
+    );
+    fireEvent.contextMenu(row!);
+    expect(
+      await screen.findByRole("menuitem", { name: "重命名" }),
+    ).toBeTruthy();
+  });
+  it("drags a chapter onto another volume", async () => {
+    const api = setup();
+    fireEvent.click(
+      await screen.findByRole("button", { name: "打开 远山来信" }),
+    );
+    await screen.findByRole("textbox", { name: "章节正文" });
+    const row = screen.getByRole("button", { name: "第1章 初见" }).closest(
+      ".chapter-row",
+    );
+    const target = screen
+      .getByRole("button", { name: "卷操作 远方" })
+      .closest(".volume-title");
+    fireEvent.dragStart(row!);
+    fireEvent.dragOver(target!, { clientY: 4 });
+    fireEvent.drop(target!);
+    await waitFor(() =>
+      expect(api.apply).toHaveBeenCalledWith({
+        type: "place_chapter",
+        id: "c",
+        volume_id: "v2",
+        before_id: null,
+      }),
+    );
+  });
+  it("moves a chapter across volumes with Alt+ArrowDown", async () => {
+    const api = setup();
+    fireEvent.click(
+      await screen.findByRole("button", { name: "打开 远山来信" }),
+    );
+    await screen.findByRole("textbox", { name: "章节正文" });
+    const row = screen.getByRole("button", { name: "第1章 初见" });
+    fireEvent.keyDown(row, { key: "ArrowDown", altKey: true });
+    await waitFor(() =>
+      expect(api.apply).toHaveBeenCalledWith({
+        type: "place_chapter",
+        id: "c",
+        volume_id: "v2",
+        before_id: null,
+      }),
+    );
+  });
+  it("recycles the focused chapter with Ctrl+Delete", async () => {
+    const api = setup();
+    fireEvent.click(
+      await screen.findByRole("button", { name: "打开 远山来信" }),
+    );
+    await screen.findByRole("textbox", { name: "章节正文" });
+    fireEvent.keyDown(screen.getByRole("button", { name: "第2章 远行" }), {
+      key: "Delete",
+      ctrlKey: true,
+    });
+    fireEvent.click(await screen.findByRole("button", { name: "确认" }));
+    await waitFor(() =>
+      expect(api.apply).toHaveBeenCalledWith({
+        type: "trash_chapter",
+        id: "d",
+      }),
+    );
+  });
+  it("reorders volumes by dragging one onto another", async () => {
+    const api = setup();
+    fireEvent.click(
+      await screen.findByRole("button", { name: "打开 远山来信" }),
+    );
+    await screen.findByRole("textbox", { name: "章节正文" });
+    const source = screen
+      .getByRole("button", { name: "卷操作 归途" })
+      .closest(".volume-title");
+    const target = screen
+      .getByRole("button", { name: "卷操作 远方" })
+      .closest(".volume-title");
+    fireEvent.dragStart(source!);
+    fireEvent.dragOver(target!, { clientY: 40 });
+    fireEvent.drop(target!);
+    await waitFor(() =>
+      expect(api.apply).toHaveBeenCalledWith({
+        type: "place_volume",
+        id: "v",
+        before_id: null,
+      }),
+    );
   });
 });

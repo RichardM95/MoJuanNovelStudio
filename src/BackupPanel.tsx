@@ -505,6 +505,7 @@ export default function BackupPanel({
                 )}
                 {expired && <p>候选已到期，请刷新状态后重新选择。</p>}
                 <button
+                  className="primary"
                   disabled={
                     busy ||
                     uncertain ||
@@ -522,6 +523,7 @@ export default function BackupPanel({
             )}
             {job.status === "prepared" && (
               <button
+                className="danger-text"
                 disabled={busy || uncertain || job.cancel_requested}
                 onClick={() => void action("cancel")}
               >
@@ -530,6 +532,7 @@ export default function BackupPanel({
             )}
             {job.status === "running" && (
               <button
+                className="danger-text"
                 disabled={busy || uncertain || job.cancel_requested}
                 onClick={() => void action("cancel")}
               >
@@ -550,10 +553,15 @@ export default function BackupPanel({
                 <p>
                   确认使用已校验候选替换整个书库，并清除上述运行记录与授权？包括替换当前启用或暂停的写作约束。备份中的严格建议仅作为证据归档，启用配置恢复为暂停；旧备份可能没有这些配置。
                 </p>
-                <button disabled={busy} onClick={() => setConfirm(null)}>
+                <button
+                  className="ghost"
+                  disabled={busy}
+                  onClick={() => setConfirm(null)}
+                >
                   返回预览
                 </button>
                 <button
+                  className="danger"
                   disabled={busy || uncertain || expired}
                   onClick={() => void action("confirm")}
                 >

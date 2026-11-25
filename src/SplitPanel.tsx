@@ -275,7 +275,11 @@ export default function SplitPanel({
             </h3>
             <pre>{preview.before}</pre>
             {preview.before_truncated && <p>仅显示前2000字符</p>}
-            <button onClick={() => show("before")} disabled={busy}>
+            <button
+              className="ghost"
+              onClick={() => show("before")}
+              disabled={busy}
+            >
               查看前半全文
             </button>
             <h3>
@@ -283,10 +287,14 @@ export default function SplitPanel({
             </h3>
             <pre>{preview.after}</pre>
             {preview.after_truncated && <p>仅显示前2000字符</p>}
-            <button onClick={() => show("after")} disabled={busy}>
+            <button
+              className="ghost"
+              onClick={() => show("after")}
+              disabled={busy}
+            >
               查看后半全文
             </button>
-            <button onClick={ask} disabled={busy}>
+            <button className="primary" onClick={ask} disabled={busy}>
               拆分为两章
             </button>
           </>
@@ -300,10 +308,14 @@ export default function SplitPanel({
               确认保留原章前半，并在其后新增“{preview?.new_title}
               ”？关联不会迁移。
             </p>
-            <button onClick={commit} disabled={busy}>
+            <button className="primary" onClick={commit} disabled={busy}>
               确认拆分
             </button>
-            <button onClick={() => setConfirm(false)} disabled={busy}>
+            <button
+              className="ghost"
+              onClick={() => setConfirm(false)}
+              disabled={busy}
+            >
               取消确认
             </button>
           </div>

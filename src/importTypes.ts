@@ -1,5 +1,9 @@
 export type ImportMode = "headings" | "single";
-export type ImportSourceHeading = { line: number; number: number | null };
+export type ImportSourceHeading = {
+  line: number;
+  number: number | null;
+  unit?: string | null;
+};
 export type ImportChapter = {
   index: number;
   title: string;

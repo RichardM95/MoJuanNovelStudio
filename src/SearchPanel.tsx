@@ -125,7 +125,7 @@ export default function SearchPanel({
               setError("");
             }}
           />
-          <button type="submit" disabled={busy}>
+          <button className="primary" type="submit" disabled={busy}>
             搜索
           </button>
         </form>

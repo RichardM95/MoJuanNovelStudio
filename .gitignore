@@ -1,14 +1,35 @@
+# 依赖与前端构建产物
 node_modules/
-target/
 dist/
-.local/
-*.db
-
+.vite/
+coverage/
 *.tsbuildinfo
 
+# Rust / Tauri 构建产物
+target/
+src-tauri/gen/schemas/
+
+# 本地缓存、工具链与草稿（.local 内含本地 Rust 工具链、样书与编译缓存）
+.local/
+.codegraph/
 qa-output/
-
 .superpowers/
+.screenshots/
 
-/.codegraph/
-/src-tauri/gen/schemas/
+# SQLite 数据库及其写入临时文件
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# 日志
+*.log
+
+# 系统与编辑器
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vs/
+*.swp
+*.swo

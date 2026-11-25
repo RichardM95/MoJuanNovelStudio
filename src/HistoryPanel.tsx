@@ -331,6 +331,7 @@ export default function HistoryPanel({
               </label>
               <div className="history-actions">
                 <button
+                  className="primary"
                   disabled={!dirty || busy || working || !!confirm}
                   onClick={() => void saveLabel()}
                 >

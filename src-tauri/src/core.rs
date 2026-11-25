@@ -102,6 +102,15 @@ pub enum Command {
         id: String,
         volume_id: String,
     },
+    PlaceChapter {
+        id: String,
+        volume_id: String,
+        before_id: Option<String>,
+    },
+    PlaceVolume {
+        id: String,
+        before_id: Option<String>,
+    },
     SaveChapter {
         id: String,
         body: String,
@@ -319,6 +328,13 @@ impl Service {
             Command::TransferChapter { id, volume_id } => {
                 active_chapter(&s, id)?;
                 active_volume(&s, volume_id)?;
+            }
+            Command::PlaceChapter { id, volume_id, .. } => {
+                active_chapter(&s, id)?;
+                active_volume(&s, volume_id)?;
+            }
+            Command::PlaceVolume { id, .. } => {
+                active_volume(&s, id)?;
             }
             _ => {}
         }
@@ -584,6 +600,126 @@ impl Service {
                     for (order, index) in peers.into_iter().enumerate() {
                         s.chapters[index].sort_order = order as i64;
                     }
+                }
+            }
+            Command::PlaceChapter {
+                id,
+                volume_id,
+                before_id,
+            } => {
+                if before_id.as_deref() == Some(id.as_str()) {
+                    return self.load();
+                }
+                let index = s
+                    .chapters
+                    .iter()
+                    .position(|c| c.id == id)
+                    .ok_or("章不存在")?;
+                let source = s.chapters[index].volume_id.clone();
+                let source_book = s
+                    .volumes
+                    .iter()
+                    .find(|v| v.id == source)
+                    .ok_or("原卷不存在")?
+                    .book_id
+                    .clone();
+                if s.volumes
+                    .iter()
+                    .find(|v| v.id == volume_id)
+                    .ok_or("目的卷不存在")?
+                    .book_id
+                    != source_book
+                {
+                    return Err("不能跨作品移动章节".into());
+                }
+                if let Some(before) = before_id.as_deref() {
+                    let target = s
+                        .chapters
+                        .iter()
+                        .find(|c| c.id == before)
+                        .ok_or("目标章节不存在")?;
+                    if target.volume_id != volume_id || target.deleted_at.is_some() {
+                        return Err("目标章节不属于目的卷".into());
+                    }
+                }
+                let mut target: Vec<usize> = s
+                    .chapters
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, c)| c.volume_id == volume_id && c.id != id)
+                    .map(|(i, _)| i)
+                    .collect();
+                target.sort_by_key(|i| (s.chapters[*i].sort_order, s.chapters[*i].id.clone()));
+                let position = match before_id.as_deref() {
+                    Some(before) => target
+                        .iter()
+                        .position(|i| s.chapters[*i].id == before)
+                        .ok_or("目标章节不属于目的卷")?,
+                    None => target.len(),
+                };
+                target.insert(position, index);
+                if source != volume_id {
+                    s.chapters[index].volume_id = volume_id.clone();
+                }
+                for (order, i) in target.into_iter().enumerate() {
+                    s.chapters[i].sort_order = order as i64;
+                }
+                if source != volume_id {
+                    let mut peers: Vec<usize> = s
+                        .chapters
+                        .iter()
+                        .enumerate()
+                        .filter(|(_, c)| c.volume_id == source)
+                        .map(|(i, _)| i)
+                        .collect();
+                    peers.sort_by_key(|i| (s.chapters[*i].sort_order, s.chapters[*i].id.clone()));
+                    for (order, i) in peers.into_iter().enumerate() {
+                        s.chapters[i].sort_order = order as i64;
+                    }
+                }
+            }
+            Command::PlaceVolume { id, before_id } => {
+                if before_id.as_deref() == Some(id.as_str()) {
+                    return self.load();
+                }
+                let index = s
+                    .volumes
+                    .iter()
+                    .position(|v| v.id == id)
+                    .ok_or("卷不存在")?;
+                let book_id = s.volumes[index].book_id.clone();
+                if let Some(before) = before_id.as_deref() {
+                    let target = s
+                        .volumes
+                        .iter()
+                        .find(|v| v.id == before)
+                        .ok_or("目标卷不存在")?;
+                    if target.book_id != book_id {
+                        return Err("目标卷不属于同一作品".into());
+                    }
+                    if target.deleted_at.is_some() {
+                        return Err("目标卷不在目录中".into());
+                    }
+                }
+                let mut order: Vec<usize> = s
+                    .volumes
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, v)| v.book_id == book_id)
+                    .map(|(i, _)| i)
+                    .collect();
+                order.sort_by_key(|i| (s.volumes[*i].sort_order, s.volumes[*i].id.clone()));
+                order.retain(|i| *i != index);
+                let position = match before_id.as_deref() {
+                    Some(before) => order
+                        .iter()
+                        .position(|i| s.volumes[*i].id == before)
+                        .ok_or("目标卷不存在")?,
+                    None => order.len(),
+                };
+                order.insert(position, index);
+                for (order, i) in order.into_iter().enumerate() {
+                    s.volumes[i].sort_order = order as i64;
                 }
             }
             Command::SaveChapter { .. } => unreachable!("save handled by conditional SQL update"),

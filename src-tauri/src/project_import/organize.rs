@@ -59,9 +59,10 @@ fn character_label(label: &str) -> Option<&str> {
     .then_some(name)
 }
 
-fn structural(line: &str) -> Option<(char, u32, &str)> {
-    let (unit, number, tail) = txt_import::heading_parts(line)?;
+fn structural(line: &str) -> Option<(bool, char, u32, &str)> {
+    let (volume, unit, number, tail) = txt_import::heading_parts(line)?;
     Some((
+        volume,
         unit,
         text::ordinal(number)?,
         tail.trim_start().trim_start_matches(['：', ':']).trim(),
@@ -71,7 +72,7 @@ fn structural(line: &str) -> Option<(char, u32, &str)> {
 fn volume_in(line: &str) -> Option<u32> {
     line.match_indices('第')
         .find_map(|(i, _)| match structural(&line[i..]) {
-            Some(('卷', n, _)) => Some(n),
+            Some((true, _, n, _)) => Some(n),
             _ => None,
         })
 }
@@ -80,7 +81,7 @@ fn outline_line(line: &str) -> Option<(u32, &str, &str)> {
     let (head, rest) = label(line)
         .split_once(" — ")
         .or_else(|| label(line).split_once(" -- "))?;
-    let ('章', number, title) = structural(head.trim_matches('*'))? else {
+    let (false, _, number, title) = structural(head.trim_matches('*'))? else {
         return None;
     };
     Some((number, title, rest.trim()))
@@ -303,15 +304,15 @@ fn extract(source: &str) -> (Vec<Note>, Vec<LineRange>) {
                 });
                 continue;
             }
-            if let Some((unit, n, title)) = numbered {
-                if unit == '卷' {
+            if let Some((is_volume, _, n, title)) = numbered {
+                if is_volume {
                     volume = Some(n);
                 }
                 if planning_level.is_some() {
-                    let kind = if unit == '章' {
-                        Kind::Chapter
-                    } else {
+                    let kind = if is_volume {
                         Kind::Volume
+                    } else {
+                        Kind::Chapter
                     };
                     active = Some(Note {
                         kind,

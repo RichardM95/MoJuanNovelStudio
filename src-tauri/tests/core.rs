@@ -251,6 +251,334 @@ fn oversized_backup_is_rejected() {
     std::fs::remove_file(p).unwrap();
 }
 #[test]
+fn place_chapter_reorders_within_volume() {
+    let mut s = Service::open(":memory:").unwrap();
+    let a = new_book(&mut s);
+    let v = a.volumes[0].id.clone();
+    let first = a.chapters[0].id.clone();
+    for title in ["二", "三"] {
+        s.apply(Command::CreateChapter {
+            volume_id: v.clone(),
+            title: title.into(),
+        })
+        .unwrap();
+    }
+    let a = s.load().unwrap();
+    let third = a
+        .chapters
+        .iter()
+        .find(|c| c.title == "三")
+        .unwrap()
+        .id
+        .clone();
+    let a = s
+        .apply(Command::PlaceChapter {
+            id: third.clone(),
+            volume_id: v.clone(),
+            before_id: Some(first),
+        })
+        .unwrap();
+    let ordered: Vec<_> = a
+        .chapters
+        .iter()
+        .filter(|c| c.volume_id == v)
+        .collect();
+    let mut ordered = ordered;
+    ordered.sort_by_key(|c| c.sort_order);
+    assert_eq!(
+        ordered.iter().map(|c| c.title.as_str()).collect::<Vec<_>>(),
+        vec!["三", "初章", "二"]
+    );
+    assert_eq!(
+        ordered.iter().map(|c| c.sort_order).collect::<Vec<_>>(),
+        vec![0, 1, 2]
+    );
+    let a = s
+        .apply(Command::PlaceChapter {
+            id: third,
+            volume_id: v.clone(),
+            before_id: None,
+        })
+        .unwrap();
+    let mut ordered: Vec<_> = a.chapters.iter().filter(|c| c.volume_id == v).collect();
+    ordered.sort_by_key(|c| c.sort_order);
+    assert_eq!(
+        ordered.iter().map(|c| c.title.as_str()).collect::<Vec<_>>(),
+        vec!["初章", "二", "三"]
+    );
+}
+
+#[test]
+fn place_chapter_moves_across_volumes() {
+    let mut s = Service::open(":memory:").unwrap();
+    let a = new_book(&mut s);
+    let v1 = a.volumes[0].id.clone();
+    let first = a.chapters[0].id.clone();
+    s.apply(Command::CreateVolume {
+        book_id: a.books[0].id.clone(),
+        title: "远方".into(),
+    })
+    .unwrap();
+    let a = s.load().unwrap();
+    let v2 = a
+        .volumes
+        .iter()
+        .find(|v| v.id != v1)
+        .unwrap()
+        .id
+        .clone();
+    for title in ["甲", "乙"] {
+        s.apply(Command::CreateChapter {
+            volume_id: v2.clone(),
+            title: title.into(),
+        })
+        .unwrap();
+    }
+    let a = s.load().unwrap();
+    let second = a
+        .chapters
+        .iter()
+        .find(|c| c.title == "乙")
+        .unwrap()
+        .id
+        .clone();
+    let a = s
+        .apply(Command::PlaceChapter {
+            id: first.clone(),
+            volume_id: v2.clone(),
+            before_id: Some(second),
+        })
+        .unwrap();
+    let mut target: Vec<_> = a.chapters.iter().filter(|c| c.volume_id == v2).collect();
+    target.sort_by_key(|c| c.sort_order);
+    assert_eq!(
+        target.iter().map(|c| c.title.as_str()).collect::<Vec<_>>(),
+        vec!["甲", "初章", "乙"]
+    );
+    assert_eq!(
+        target.iter().map(|c| c.sort_order).collect::<Vec<_>>(),
+        vec![0, 1, 2]
+    );
+    assert!(a.chapters.iter().all(|c| c.volume_id != v1));
+    let a = s
+        .apply(Command::PlaceChapter {
+            id: first,
+            volume_id: v2.clone(),
+            before_id: None,
+        })
+        .unwrap();
+    let mut target: Vec<_> = a.chapters.iter().filter(|c| c.volume_id == v2).collect();
+    target.sort_by_key(|c| c.sort_order);
+    assert_eq!(
+        target.iter().map(|c| c.title.as_str()).collect::<Vec<_>>(),
+        vec!["甲", "乙", "初章"]
+    );
+}
+
+#[test]
+fn place_chapter_rejects_invalid_targets() {
+    let mut s = Service::open(":memory:").unwrap();
+    let a = new_book(&mut s);
+    let book = a.books[0].id.clone();
+    let v1 = a.volumes[0].id.clone();
+    let first = a.chapters[0].id.clone();
+    s.apply(Command::CreateVolume {
+        book_id: book.clone(),
+        title: "远方".into(),
+    })
+    .unwrap();
+    let a = s.load().unwrap();
+    let v2 = a
+        .volumes
+        .iter()
+        .find(|v| v.id != v1)
+        .unwrap()
+        .id
+        .clone();
+    s.apply(Command::CreateChapter {
+        volume_id: v2.clone(),
+        title: "甲".into(),
+    })
+    .unwrap();
+    s.apply(Command::CreateChapter {
+        volume_id: v1.clone(),
+        title: "删除".into(),
+    })
+    .unwrap();
+    let a = s.load().unwrap();
+    let hidden = a
+        .chapters
+        .iter()
+        .find(|c| c.title == "删除")
+        .unwrap()
+        .id
+        .clone();
+    let other = a
+        .chapters
+        .iter()
+        .find(|c| c.title == "甲")
+        .unwrap()
+        .id
+        .clone();
+    s.apply(Command::TrashChapter {
+        id: hidden.clone(),
+    })
+    .unwrap();
+    let before = s.backup().unwrap();
+    for (id, volume_id, before_id) in [
+        (first.clone(), v1.clone(), Some(other.clone())),
+        (first.clone(), v2.clone(), Some(hidden.clone())),
+        (first.clone(), v2.clone(), Some("缺失".into())),
+    ] {
+        assert!(s
+            .apply(Command::PlaceChapter {
+                id,
+                volume_id,
+                before_id,
+            })
+            .is_err());
+        assert_eq!(before, s.backup().unwrap());
+    }
+    let b = s
+        .apply(Command::CreateBook {
+            title: "另一本".into(),
+            author: "".into(),
+        })
+        .unwrap();
+    let foreign_volume = b
+        .volumes
+        .iter()
+        .find(|v| v.book_id != book)
+        .unwrap()
+        .id
+        .clone();
+    let foreign = b
+        .chapters
+        .iter()
+        .find(|c| c.volume_id == foreign_volume)
+        .unwrap()
+        .id
+        .clone();
+    let before = s.backup().unwrap();
+    assert!(s
+        .apply(Command::PlaceChapter {
+            id: foreign,
+            volume_id: v1,
+            before_id: None,
+        })
+        .is_err());
+    assert_eq!(before, s.backup().unwrap());
+}
+
+#[test]
+fn place_chapter_keeps_deleted_unique() {
+    let mut s = Service::open(":memory:").unwrap();
+    let a = new_book(&mut s);
+    let v = a.volumes[0].id.clone();
+    let first = a.chapters[0].id.clone();
+    s.apply(Command::CreateChapter {
+        volume_id: v.clone(),
+        title: "二".into(),
+    })
+    .unwrap();
+    let a = s.load().unwrap();
+    let second = a
+        .chapters
+        .iter()
+        .find(|c| c.title == "二")
+        .unwrap()
+        .id
+        .clone();
+    s.apply(Command::TrashChapter { id: second.clone() })
+        .unwrap();
+    s.apply(Command::PlaceChapter {
+        id: first,
+        volume_id: v.clone(),
+        before_id: None,
+    })
+    .unwrap();
+    s.apply(Command::RestoreChapter { id: second }).unwrap();
+    let a = s.load().unwrap();
+    let mut ordered: Vec<_> = a.chapters.iter().filter(|c| c.volume_id == v).collect();
+    ordered.sort_by_key(|c| (c.sort_order, c.id.clone()));
+    assert_eq!(
+        ordered.iter().map(|c| c.title.as_str()).collect::<Vec<_>>(),
+        vec!["二", "初章"]
+    );
+    assert_eq!(
+        ordered.iter().map(|c| c.sort_order).collect::<Vec<_>>(),
+        vec![0, 1]
+    );
+}
+
+#[test]
+fn place_volume_reorders_and_rejects_foreign() {
+    let mut s = Service::open(":memory:").unwrap();
+    let a = new_book(&mut s);
+    let book = a.books[0].id.clone();
+    let v1 = a.volumes[0].id.clone();
+    for title in ["二卷", "三卷"] {
+        s.apply(Command::CreateVolume {
+            book_id: book.clone(),
+            title: title.into(),
+        })
+        .unwrap();
+    }
+    let a = s.load().unwrap();
+    let third = a
+        .volumes
+        .iter()
+        .find(|v| v.title == "三卷")
+        .unwrap()
+        .id
+        .clone();
+    let a = s
+        .apply(Command::PlaceVolume {
+            id: third.clone(),
+            before_id: Some(v1.clone()),
+        })
+        .unwrap();
+    let mut ordered: Vec<_> = a.volumes.iter().filter(|v| v.book_id == book).collect();
+    ordered.sort_by_key(|v| v.sort_order);
+    assert_eq!(
+        ordered.iter().map(|v| v.title.as_str()).collect::<Vec<_>>(),
+        vec!["三卷", "启程", "二卷"]
+    );
+    assert_eq!(
+        ordered.iter().map(|v| v.sort_order).collect::<Vec<_>>(),
+        vec![0, 1, 2]
+    );
+    let b = s
+        .apply(Command::CreateBook {
+            title: "另一本".into(),
+            author: "".into(),
+        })
+        .unwrap();
+    let foreign = b
+        .volumes
+        .iter()
+        .find(|v| v.book_id != book)
+        .unwrap()
+        .id
+        .clone();
+    let before = s.backup().unwrap();
+    assert!(s
+        .apply(Command::PlaceVolume {
+            id: v1.clone(),
+            before_id: Some(foreign),
+        })
+        .is_err());
+    assert_eq!(before, s.backup().unwrap());
+    assert!(s
+        .apply(Command::PlaceVolume {
+            id: v1.clone(),
+            before_id: Some(v1),
+        })
+        .is_ok());
+    assert_eq!(before, s.backup().unwrap());
+}
+
+#[test]
 fn nested_recycle_restore_and_purge() {
     let p = std::env::temp_dir().join(format!("novel-recycle-{}.sqlite", uuid::Uuid::new_v4()));
     let mut s = Service::open(&p).unwrap();

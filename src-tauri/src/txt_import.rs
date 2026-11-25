@@ -14,6 +14,8 @@ pub(crate) const CHAPTER_COUNT_LIMIT: usize = 2000;
 pub struct ImportSourceHeading {
     pub line: usize,
     pub number: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub unit: Option<char>,
 }
 #[derive(Clone, Debug, Serialize)]
 pub struct ImportChapter {
@@ -98,32 +100,108 @@ pub(crate) fn epoch(c: &Connection) -> WorkflowResult<String> {
 pub(crate) fn uid() -> String {
     uuid::Uuid::new_v4().to_string()
 }
-pub(crate) fn heading_parts(line: &str) -> Option<(char, &str, &str)> {
+const NUMERALS: &str = "0123456789０１２３４５６７８９零〇○一二两兩三四五六七八九十百千万萬亿億壹贰貳叁參肆伍陆陸柒捌玖拾佰仟";
+const TITLE_SEPARATORS: &str = "：:、，,（(【[「『《<—–-·•";
+const SPECIAL_HEADINGS: [&str; 10] = [
+    "序章", "序言", "楔子", "引子", "前言", "尾声", "尾聲", "后记", "後記", "番外",
+];
+fn unit(unit: char) -> Option<(bool, char)> {
+    match unit {
+        '卷' | '部' | '篇' => Some((true, unit)),
+        '章' | '回' | '节' | '節' | '集' | '话' | '話' => Some((false, unit)),
+        _ => None,
+    }
+}
+// Mirrors the reader rules: 第…卷/部/篇 is a volume, 第…章/回/节/集/话 a
+// chapter; "正文" may prefix the line, spaces may surround the numeral, and
+// English chapter/part/book/volume lines are accepted with Arabic numerals.
+pub(crate) fn heading_parts(line: &str) -> Option<(bool, char, &str, &str)> {
+    if line.chars().take(201).count() > 200 {
+        return None;
+    }
+    let mut line = line.trim();
+    if let Some(rest) = line.strip_prefix("正文") {
+        if rest.starts_with(char::is_whitespace) || rest.starts_with('第') {
+            line = rest.trim_start();
+        }
+    }
+    if let Some(rest) = line.strip_prefix('第') {
+        let body = rest.trim_start();
+        let end = body
+            .char_indices()
+            .find(|(_, c)| !NUMERALS.contains(*c))
+            .map(|(index, _)| index)?;
+        if end == 0 {
+            return None;
+        }
+        let number = &body[..end];
+        let tail = body[end..].trim_start();
+        let mut chars = tail.chars();
+        let (volume, unit) = unit(chars.next()?)?;
+        return Some((volume, unit, number, chars.as_str()));
+    }
+    for (word, volume, unit) in [
+        ("chapter", false, '章'),
+        ("part", true, '部'),
+        ("book", true, '卷'),
+        ("volume", true, '卷'),
+    ] {
+        let Some(head) = line.get(..word.len()) else {
+            continue;
+        };
+        if !head.eq_ignore_ascii_case(word) {
+            continue;
+        }
+        let rest = &line[word.len()..];
+        if !rest.starts_with(char::is_whitespace) {
+            continue;
+        }
+        let rest = rest.trim_start();
+        let end = rest
+            .char_indices()
+            .find(|(_, c)| !c.is_ascii_digit())
+            .map(|(index, _)| index)
+            .unwrap_or(rest.len());
+        if end == 0 {
+            continue;
+        }
+        let suffix = &rest[end..];
+        if !suffix.is_empty()
+            && !suffix
+                .chars()
+                .next()
+                .is_some_and(|c| c.is_whitespace() || TITLE_SEPARATORS.contains(c))
+        {
+            continue;
+        }
+        return Some((volume, unit, &rest[..end], suffix));
+    }
+    None
+}
+pub(crate) fn special_heading(line: &str) -> Option<&str> {
     if line.chars().take(201).count() > 200 {
         return None;
     }
     let line = line.trim();
-    let rest = line.strip_prefix('第')?;
-    let end = rest
-        .char_indices()
-        .find(|(_, c)| {
-            !"0123456789０１２３４５６７８９零〇一二三四五六七八九十百千万两".contains(*c)
-        })?
-        .0;
-    if end == 0 {
-        return None;
-    }
-    let mut tail = rest[end..].chars();
-    let kind = tail.next()?;
-    if kind != '卷' && kind != '章' {
-        return None;
-    }
-    Some((kind, &rest[..end], tail.as_str()))
+    let word = SPECIAL_HEADINGS
+        .iter()
+        .find(|word| line.starts_with(**word))?;
+    let rest = &line[word.len()..];
+    (rest.is_empty()
+        || rest.starts_with(char::is_whitespace)
+        || rest.starts_with(['：', ':', '（', '(']))
+    .then_some(line)
 }
-pub(crate) fn heading_title(kind: char, suffix: &str) -> String {
-    let title = suffix.trim();
+fn title_text(suffix: &str) -> &str {
+    suffix
+        .trim()
+        .trim_start_matches(['：', ':', '、', '，', ',', '—', '–', '-', '·', '•'])
+        .trim()
+}
+pub(crate) fn heading_title(volume: bool, suffix: &str) -> String {
+    let title = title_text(suffix);
     if title.is_empty() {
-        if kind == '卷' {
+        if volume {
             "未命名卷"
         } else {
             "未命名章"
@@ -133,12 +211,22 @@ pub(crate) fn heading_title(kind: char, suffix: &str) -> String {
         title.into()
     }
 }
-fn heading(line: &str) -> Option<(char, String)> {
-    let (kind, _, suffix) = heading_parts(line)?;
-    if !suffix.is_empty() && !suffix.chars().next()?.is_whitespace() {
+pub(crate) fn heading_title_checked(volume: bool, suffix: &str) -> Option<String> {
+    if suffix
+        .chars()
+        .next()
+        .is_some_and(|c| !c.is_whitespace() && !TITLE_SEPARATORS.contains(c) && !volume)
+    {
         return None;
     }
-    Some((kind, heading_title(kind, suffix)))
+    Some(heading_title(volume, suffix))
+}
+fn heading(line: &str) -> Option<(bool, String)> {
+    if let Some(title) = special_heading(line) {
+        return Some((false, title.into()));
+    }
+    let (volume, _, _, suffix) = heading_parts(line)?;
+    Some((volume, heading_title_checked(volume, suffix)?))
 }
 // Slices include their original LF, CRLF, or CR terminator without allocating copies.
 pub(crate) fn lines(text: &str) -> impl Iterator<Item = (&str, &str)> {
@@ -218,8 +306,8 @@ fn parse(text: &str, mode: &str) -> WorkflowResult<Vec<Volume>> {
     let mut volumes = vec![];
     let mut count = 0;
     for (line, raw) in lines(text) {
-        if let Some((kind, title)) = heading(line) {
-            if kind == '卷' {
+        if let Some((volume_kind, title)) = heading(line) {
+            if volume_kind {
                 push_volume(&mut volumes, title)?
             } else {
                 push_chapter(&mut volumes, &mut count, title)?

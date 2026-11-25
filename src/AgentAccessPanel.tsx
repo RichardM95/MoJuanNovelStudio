@@ -112,6 +112,7 @@ export default function AgentAccessPanel({
               </span>{" "}
               {session.status === "pending" && (
                 <button
+                  className="primary"
                   disabled={busy}
                   onClick={() =>
                     void refresh(() => api.grant(session.id, book.id))

@@ -31,7 +31,7 @@ const cardNames = {
 const chapterName = (chapter: ImportChapter) =>
   chapter.source?.number == null
     ? chapter.title
-    : `第${chapter.source.number}章 ${chapter.title}`;
+    : `第${chapter.source.number}${chapter.source.unit ?? "章"} ${chapter.title}`;
 const range = (first: number, last: number) =>
   first === last ? String(first) : `${first}–${last}`;
 type Receipt = { preview: ProjectPreview; error: string | null };
@@ -544,7 +544,7 @@ export default function ProjectImportPanel({
                   <div key={index}>
                     <h3>
                       {volume.source?.number != null &&
-                        `第${volume.source.number}卷 `}
+                        `第${volume.source.number}${volume.source.unit ?? "卷"} `}
                       {volume.title}
                       {volume.source && (
                         <small> · 源第 {volume.source.line} 行</small>

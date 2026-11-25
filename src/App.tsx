@@ -7,10 +7,6 @@ import {
   Download,
   Archive,
   RotateCcw,
-  ChevronUp,
-  ChevronDown,
-  FileText,
-  FolderPlus,
   Check,
   Save,
   PenLine,
@@ -25,6 +21,7 @@ import {
 import type { API, LibraryState, Chapter, Command } from "./types";
 import { SAVE_UNKNOWN, SaveQueue } from "./saveQueue";
 import { useDraftRecovery, type DraftAnchor } from "./useDraftRecovery";
+import Directory from "./Directory";
 import RecycleBin from "./RecycleBin";
 import ReviewPanel from "./ReviewPanel";
 import BackupPanel from "./BackupPanel";
@@ -346,6 +343,12 @@ export default function App({ api }: { api: API }) {
         .filter((v) => v.book_id === id && v.deleted_at == null)
         .sort((a, b) => a.sort_order - b.sort_order);
       select(vs.length ? (chaptersOf(vs[0].id)[0] ?? null) : null);
+    });
+  const openChapter = (c: Chapter) =>
+    run(async () => {
+      const latest = await api.load();
+      setData(latest);
+      select(latest.chapters.find((x) => x.id === c.id) ?? null);
     });
   const mutate = async (command: Command) => {
     const next = await api.apply(command);
@@ -879,173 +882,19 @@ export default function App({ api }: { api: API }) {
               )}
             </nav>
             <div className="writing-layout">
-              <aside className="directory">
-                <div className="directory-title">
-                  <strong>目录</strong>
-                  <button
-                    aria-label="新增卷"
-                    onClick={() =>
-                      titleForm("新增卷", "", async (title) => {
-                        await mutate({
-                          type: "create_volume",
-                          book_id: bookId,
-                          title,
-                        });
-                      })
-                    }
-                  >
-                    <FolderPlus size={18} />
-                  </button>
-                </div>
-                {volumes.map((v, vi) => (
-                  <section key={v.id} className="volume">
-                    <div className="volume-title">
-                      <button
-                        aria-label={`删除卷 ${v.title}`}
-                        disabled={busy}
-                        onClick={() =>
-                          setConfirm({
-                            text: `将卷《${v.title}》及其中章节移入回收站？可恢复，正文不会丢失。`,
-                            run: async () => {
-                              await mutate({ type: "trash_volume", id: v.id });
-                              if (chapter?.volume_id === v.id) select(null);
-                            },
-                          })
-                        }
-                      >
-                        <Trash2 size={13} />
-                      </button>
-                      <button
-                        className="volume-name"
-                        onClick={() =>
-                          titleForm("修改卷名", v.title, async (title) => {
-                            await mutate({
-                              type: "rename_volume",
-                              id: v.id,
-                              title,
-                            });
-                          })
-                        }
-                      >
-                        第{vi + 1}卷 {v.title}
-                      </button>
-                      <button
-                        aria-label={`上移卷 ${v.title}`}
-                        disabled={vi === 0 || busy}
-                        onClick={() =>
-                          run(async () => {
-                            await mutate({
-                              type: "move_volume",
-                              id: v.id,
-                              direction: -1,
-                            });
-                          })
-                        }
-                      >
-                        <ChevronUp size={13} />
-                      </button>
-                      <button
-                        aria-label={`下移卷 ${v.title}`}
-                        disabled={vi === volumes.length - 1 || busy}
-                        onClick={() =>
-                          run(async () => {
-                            await mutate({
-                              type: "move_volume",
-                              id: v.id,
-                              direction: 1,
-                            });
-                          })
-                        }
-                      >
-                        <ChevronDown size={13} />
-                      </button>
-                    </div>
-                    {chaptersOf(v.id).map((c, ci) => (
-                      <div
-                        key={c.id}
-                        className={`chapter-row ${c.id === chapterId ? "selected" : ""}`}
-                      >
-                        <button
-                          onClick={() =>
-                            run(async () => {
-                              const latest = await api.load();
-                              setData(latest);
-                              select(
-                                latest.chapters.find((x) => x.id === c.id) ??
-                                  null,
-                              );
-                            })
-                          }
-                        >
-                          <FileText size={15} />
-                          <span>
-                            第
-                            {orderedChapters.findIndex((x) => x.id === c.id) +
-                              1}
-                            章 {c.title}
-                          </span>
-                        </button>
-                        <div className="row-move">
-                          <button
-                            aria-label={`上移章 ${c.title}`}
-                            disabled={ci === 0 || busy}
-                            onClick={() =>
-                              run(async () => {
-                                await mutate({
-                                  type: "move_chapter",
-                                  id: c.id,
-                                  direction: -1,
-                                });
-                              })
-                            }
-                          >
-                            <ChevronUp size={12} />
-                          </button>
-                          <button
-                            aria-label={`下移章 ${c.title}`}
-                            disabled={
-                              ci === chaptersOf(v.id).length - 1 || busy
-                            }
-                            onClick={() =>
-                              run(async () => {
-                                await mutate({
-                                  type: "move_chapter",
-                                  id: c.id,
-                                  direction: 1,
-                                });
-                              })
-                            }
-                          >
-                            <ChevronDown size={12} />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                    <button
-                      className="add-chapter"
-                      onClick={() =>
-                        titleForm("新增章节", "", async (title) => {
-                          const before = new Set(
-                            data.chapters.map((c) => c.id),
-                          );
-                          const next = await mutate({
-                            type: "create_chapter",
-                            volume_id: v.id,
-                            title,
-                          });
-                          select(
-                            next.chapters.find((c) => !before.has(c.id)) ??
-                              null,
-                          );
-                        })
-                      }
-                    >
-                      <Plus size={14} />
-                      新增章节
-                    </button>
-                  </section>
-                ))}
-              </aside>
+              <Directory
+                bookId={book.id}
+                volumes={volumes}
+                chapters={data.chapters}
+                selected={chapter ?? null}
+                busy={busy}
+                run={run}
+                mutate={mutate}
+                select={select}
+                confirm={(text, action) => setConfirm({ text, run: action })}
+                titleForm={titleForm}
+                onOpen={openChapter}
+              />
               <section className="manuscript">
                 {chapter ? (
                   <>

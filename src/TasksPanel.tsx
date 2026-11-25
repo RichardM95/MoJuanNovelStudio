@@ -317,7 +317,11 @@ export default function TasksPanel({
           只做本地统计与状态检查，不改稿、不判断剧情质量。关闭面板后任务继续。
         </p>
         <nav>
-          <button disabled={busy} onClick={() => void action("start")}>
+          <button
+            className="primary"
+            disabled={busy}
+            onClick={() => void action("start")}
+          >
             新建检查
           </button>
           <button disabled={busy} onClick={() => void loadList()}>

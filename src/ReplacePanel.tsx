@@ -349,6 +349,7 @@ export default function ReplacePanel({
                   </div>
                 )}
                 <button
+                  className="primary"
                   disabled={expired || blocked || confirm}
                   onClick={() => setConfirm(true)}
                 >
@@ -361,8 +362,11 @@ export default function ReplacePanel({
                       {candidate.total_matches}
                       处？整次修改同时提交，可从章节历史逐章恢复。
                     </p>
-                    <button onClick={() => setConfirm(false)}>返回预览</button>
+                    <button className="ghost" onClick={() => setConfirm(false)}>
+                      返回预览
+                    </button>
                     <button
+                      className="primary"
                       disabled={blocked || expired}
                       onClick={() => void commit()}
                     >

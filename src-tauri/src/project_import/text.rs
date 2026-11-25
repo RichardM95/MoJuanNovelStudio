@@ -1,7 +1,7 @@
 use super::LineRange;
 use crate::txt_import::{
-    fail, heading_parts, heading_title, lines, push_chapter, push_volume, Volume,
-    CHAPTER_COUNT_LIMIT, CHAPTER_LIMIT, VOLUME_COUNT_LIMIT,
+    fail, heading_parts, heading_title, heading_title_checked, lines, push_chapter, push_volume,
+    special_heading, Volume, CHAPTER_COUNT_LIMIT, CHAPTER_LIMIT, VOLUME_COUNT_LIMIT,
 };
 use crate::{ImportSourceHeading, WorkflowResult};
 
@@ -90,7 +90,7 @@ fn separator(line: &str) -> bool {
 }
 
 struct Heading {
-    kind: char,
+    volume: bool,
     title: String,
     source: ImportSourceHeading,
 }
@@ -104,23 +104,30 @@ fn manuscript_heading(line: &str, after_separator: bool, number: usize) -> Optio
         Some(rest) if after_separator => (rest, true),
         _ => (line, false),
     };
-    let (kind, raw_number, suffix) = heading_parts(prefix)?;
-    if prefixed && kind != '章' {
+    if !prefixed {
+        if let Some(title) = special_heading(prefix) {
+            return Some(Heading {
+                volume: false,
+                title: title.into(),
+                source: ImportSourceHeading {
+                    line: number,
+                    number: None,
+                    unit: None,
+                },
+            });
+        }
+    }
+    let (volume, unit, raw_number, suffix) = heading_parts(prefix)?;
+    if prefixed && volume {
         return None;
     }
-    let suffix = if let Some(rest) = suffix.strip_prefix(['：', ':']) {
-        rest
-    } else if suffix.is_empty() || suffix.starts_with(char::is_whitespace) {
-        suffix
-    } else {
-        return None;
-    };
     Some(Heading {
-        kind,
-        title: heading_title(kind, suffix),
+        volume,
+        title: heading_title_checked(volume, suffix)?,
         source: ImportSourceHeading {
             line: number,
             number: ordinal(raw_number),
+            unit: Some(unit),
         },
     })
 }
@@ -213,7 +220,7 @@ pub(super) fn manuscript_excluding(
         if headings.peek().is_some_and(|h| h.source.line == number) {
             let heading = headings.next().unwrap();
             leading.clear();
-            if heading.kind == '卷' {
+            if heading.volume {
                 push_volume(&mut volumes, heading.title)?;
                 volumes.last_mut().unwrap().source = Some(heading.source);
             } else {
@@ -295,14 +302,11 @@ pub(super) fn volume_outlines(text: &str) -> Vec<Outline> {
         if let Some((level, heading)) = markdown_heading(line).filter(|(level, _)| *level <= 3) {
             outlines.extend(active.take());
             if level == 3 {
-                if let Some(('卷', raw_number, suffix)) = heading_parts(heading) {
+                if let Some((true, _, raw_number, suffix)) = heading_parts(heading) {
                     if let Some(number) = ordinal(raw_number) {
                         active = Some(Outline {
                             number,
-                            title: heading_title(
-                                '卷',
-                                suffix.strip_prefix(['：', ':']).unwrap_or(suffix),
-                            ),
+                            title: heading_title(true, suffix),
                             content: String::new(),
                             lines: LineRange {
                                 first: index + 1,
@@ -326,8 +330,8 @@ pub(super) fn chapter_outline_volume(text: &str) -> Option<u32> {
         .filter_map(|(line, _)| markdown_heading(line))
         .find(|(level, _)| *level == 1)?;
     title.match_indices('第').find_map(|(start, _)| {
-        let (kind, raw_number, _) = heading_parts(&title[start..])?;
-        (kind == '卷').then(|| ordinal(raw_number)).flatten()
+        let (volume, _, raw_number, _) = heading_parts(&title[start..])?;
+        (volume).then(|| ordinal(raw_number)).flatten()
     })
 }
 
@@ -337,7 +341,7 @@ pub(super) fn chapter_outlines(text: &str) -> Vec<Outline> {
         .filter_map(|(index, (line, _))| {
             let item = line.trim().strip_prefix(['*', '-', '+'])?.trim_start();
             let (heading, tail) = item.strip_prefix("**")?.split_once("**")?;
-            let ('章', number, suffix) = heading_parts(heading)? else {
+            let (false, _, number, suffix) = heading_parts(heading)? else {
                 return None;
             };
             let title = suffix.strip_prefix(['：', ':'])?.trim();

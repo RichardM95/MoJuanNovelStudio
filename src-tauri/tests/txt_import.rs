@@ -4,13 +4,17 @@ fn bom_mixed_newlines_and_preamble_are_preserved() {
     let mut s = Service::open(":memory:").unwrap();
     let p = s
         .prepare_txt_import(
-            "\u{feff}前言\r\n第1卷 风\r\n第一章 开始\r\n正文🙂\r\n\n第二章 结尾\n末尾".as_bytes(),
+            "\u{feff}写在前面\r\n第1卷 风\r\n第一章 开始\r\n正文🙂\r\n\n第二章 结尾\n末尾"
+                .as_bytes(),
             "旧稿.txt",
         )
         .unwrap();
     assert_eq!(p.title, "旧稿");
     assert_eq!(p.total_chapters, 3);
-    assert_eq!(s.get_txt_import_chapter(&p.id, 0).unwrap().body, "前言\r\n");
+    assert_eq!(
+        s.get_txt_import_chapter(&p.id, 0).unwrap().body,
+        "写在前面\r\n"
+    );
     assert_eq!(
         s.get_txt_import_chapter(&p.id, 1).unwrap().body,
         "正文🙂\r\n\n"
@@ -55,6 +59,34 @@ fn decoding_limits_and_conservative_heading() {
     let p = s.prepare_txt_import(text.as_bytes(), "a.txt").unwrap();
     assert_eq!(p.total_chapters, 1);
     assert_eq!(s.get_txt_import_chapter(&p.id, 0).unwrap().body, text);
+}
+#[test]
+fn reader_style_volume_chapter_and_special_headings() {
+    let mut s = Service::open(":memory:").unwrap();
+    let text =
+        "正文 第一卷：风起\n第一章：开始\n甲\n第 2 回 转折\n乙\n第二篇 云涌\n尾声\n丙\nChapter 3 The End\n丁";
+    let p = s.prepare_txt_import(text.as_bytes(), "多卷.txt").unwrap();
+    assert_eq!(p.volumes.len(), 2);
+    assert_eq!(p.volumes[0].title, "风起");
+    assert_eq!(p.volumes[0].chapters[0].title, "开始");
+    assert_eq!(p.volumes[0].chapters[1].title, "转折");
+    assert_eq!(p.volumes[1].title, "云涌");
+    assert_eq!(p.volumes[1].chapters[0].title, "尾声");
+    assert_eq!(p.volumes[1].chapters[1].title, "The End");
+    assert_eq!(p.total_chapters, 4);
+    assert_eq!(s.get_txt_import_chapter(&p.id, 1).unwrap().body, "乙\n");
+    assert_eq!(s.get_txt_import_chapter(&p.id, 2).unwrap().body, "丙\n");
+    assert_eq!(s.get_txt_import_chapter(&p.id, 3).unwrap().body, "丁");
+}
+#[test]
+fn volume_headings_do_not_require_a_separator() {
+    let mut s = Service::open(":memory:").unwrap();
+    let text = "第一卷风起\n第一章 开始\n甲\n第二部云涌\n第一章 重逢\n乙";
+    let p = s.prepare_txt_import(text.as_bytes(), "b.txt").unwrap();
+    assert_eq!(p.volumes.len(), 2);
+    assert_eq!(p.volumes[0].title, "风起");
+    assert_eq!(p.volumes[1].title, "云涌");
+    assert_eq!(p.total_chapters, 2);
 }
 #[test]
 fn creates_distinct_same_name_book_and_keeps_existing_work() {
