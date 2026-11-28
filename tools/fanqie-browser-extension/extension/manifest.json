@@ -1,0 +1,11 @@
+{
+  "manifest_version": 3,
+  "name": "墨卷逐章填表",
+  "version": "0.3.0",
+  "description": "手动填稿，或接收墨卷授权作品的逐章草稿任务并核验存稿。",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAqf19/LVmM6OXn8TaWfSGFXrRlr/mENOw9Sss8pnjK/bHEWqAMaH6pfwH+yUY70V5FDj9qos29Ya73S+xMtQJpf4qVDdJU7ZpGaPxR2oFiHvacQvW6D2tn6/+4sN+G/vVLgm2UXor0m7IoDiUTz2YPGX3SMYhlNawbA977sbUhM8g51fu44kp71eaHRLg+n4GJlzHX4PiBTAdaYk8xJO9903ZDIUX+TGWlOGngX/x5xWNRFdLG+h8ibjk9TE46qzinuIdOzwOT3TNpsbgsLK/QtHGAZGVN7dO2cwHC5c290N2GUBKQBv29SxAeunYy6CLyeaTXUqoxjeIC/fp8RZXwQIDAQAB",
+  "permissions": ["activeTab", "scripting", "nativeMessaging"],
+  "optional_host_permissions": ["https://fanqienovel.com/*"],
+  "background": {"service_worker": "worker.mjs", "type": "module"},
+  "action": {"default_popup": "popup.html"}
+}

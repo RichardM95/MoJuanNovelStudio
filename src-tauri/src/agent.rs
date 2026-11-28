@@ -15,6 +15,8 @@ pub struct AgentSession {
     pub status: String,
     pub book_id: Option<String>,
     pub created_at: u64,
+    pub browser_worker: bool,
+    pub fanqie_send: bool,
 }
 struct Session {
     view: AgentSession,
@@ -140,6 +142,8 @@ impl AgentBroker {
                 view: AgentSession {
                     id: id.clone(),
                     client_name: String::new(),
+                    browser_worker: false,
+                    fanqie_send: false,
                     status: "connected".into(),
                     book_id: None,
                     created_at: SystemTime::now()
@@ -178,6 +182,9 @@ impl AgentBroker {
         out
     }
     pub fn grant_session(&self, id: &str, book_id: &str) -> WorkflowResult<()> {
+        self.grant_access(id, book_id, false)
+    }
+    pub fn grant_access(&self, id: &str, book_id: &str, fanqie_send: bool) -> WorkflowResult<()> {
         let store = self
             .store
             .lock()
@@ -186,6 +193,19 @@ impl AgentBroker {
             .sessions
             .lock()
             .map_err(|_| err("unavailable", "会话服务不可用"))?;
+        let epoch = store.epoch()?;
+        let worker = sessions.get(id).is_some_and(|s| s.view.browser_worker);
+        if worker
+            && sessions.values().any(|s| {
+                s.view.browser_worker
+                    && s.view.status == "granted"
+                    && s.created.elapsed().as_secs() <= 3600
+                    && s.epoch == epoch
+                    && s.view.book_id.as_deref() == Some(book_id)
+            })
+        {
+            return Err(err("invalid_session", "请先撤销此作品的旧浏览器连接"));
+        }
         let s = sessions
             .get_mut(id)
             .ok_or_else(|| err("not_found", "连接已断开"))?;
@@ -196,6 +216,7 @@ impl AgentBroker {
             return Err(err("invalid_session", "会话不可授权，请重新连接"));
         }
         store.get_outline(book_id)?;
+        s.view.fanqie_send = fanqie_send && !worker;
         s.view.book_id = Some(book_id.into());
         s.view.status = "granted".into();
         Ok(())
@@ -244,7 +265,7 @@ impl AgentBroker {
         if ["expired", "revoked"].contains(&s.view.status.as_str()) {
             return Err(err("invalid_session", "授权已失效，请重新连接"));
         }
-        if req.method == "request_access" {
+        if matches!(req.method.as_str(), "request_access" | "request_browser_access") {
             let p: Access = parse(req.params)?;
             if s.view.status != "connected" {
                 return Err(err("invalid_session", "连接已申请授权"));
@@ -255,6 +276,7 @@ impl AgentBroker {
             {
                 return Err(err("invalid_input", "客户端名称无效"));
             }
+            s.view.browser_worker = req.method == "request_browser_access";
             s.view.client_name = p.client_name;
             s.view.status = "pending".into();
             return encode(&s.view);
@@ -273,6 +295,88 @@ impl AgentBroker {
             .book_id
             .as_deref()
             .ok_or_else(|| err("access_denied", "未授权"))?;
+        if s.view.browser_worker {
+            let book = book.to_owned();
+            return match req.method.as_str() {
+                "browser_volumes" => {
+                    let dir = store.fanqie_directory(&book)?;
+                    let mut volumes = BTreeMap::new();
+                    for c in dir.chapters {
+                        volumes.insert(c.volume_id, c.volume_title);
+                    }
+                    Ok(json!({"book":dir.book_title,"volumes":volumes}))
+                }
+                "browser_bind" => store.bind_fanqie(&book, parse(req.params)?),
+                "browser_claim" | "browser_validate" | "browser_body_chunk" => {
+                    let epoch = store.epoch()?;
+                    let authorized = sessions
+                        .values()
+                        .filter(|s| {
+                            s.view.fanqie_send
+                                && s.view.status == "granted"
+                                && s.view.book_id.as_ref() == Some(&book)
+                                && s.epoch == epoch
+                                && s.created.elapsed().as_secs() <= 3600
+                        })
+                        .map(|s| s.view.id.clone())
+                        .collect();
+                    if req.method != "browser_claim" {
+                        #[derive(Deserialize)]
+                        #[serde(deny_unknown_fields)]
+                        struct Check {
+                            job_id: String,
+                            claim: String,
+                            cursor: Option<usize>,
+                        }
+                        let check: Check = parse(req.params)?;
+                        if (req.method == "browser_body_chunk") != check.cursor.is_some() {
+                            return Err(err("invalid_input", "正文分段参数无效"));
+                        }
+                        store.validate_fanqie(
+                            &book,
+                            &check.job_id,
+                            &check.claim,
+                            &authorized,
+                            check.cursor,
+                        )
+                    } else {
+                        store.claim_fanqie(&book, &authorized)
+                    }
+                }
+                "browser_finish" => store.finish_fanqie(&book, parse(req.params)?),
+                _ => Err(err("access_denied", "浏览器连接仅用于番茄草稿任务")),
+            };
+        }
+        if matches!(
+            req.method.as_str(),
+            "create_fanqie_draft_job" | "get_fanqie_draft_job"
+        ) {
+            if !s.view.fanqie_send {
+                return Err(err(
+                    "access_denied",
+                    "请重新连接，在墨卷选择允许番茄存稿的授权",
+                ));
+            }
+            if req.method == "create_fanqie_draft_job" {
+                return store.create_fanqie_job(book, id, parse(req.params)?);
+            }
+            #[derive(Deserialize)]
+            #[serde(deny_unknown_fields)]
+            struct Status {
+                job_id: String,
+            }
+            let p: Status = parse(req.params)?;
+            let mut report = store.fanqie_status(book, &p.job_id)?;
+            let epoch = s.epoch.clone();
+            let book = book.to_owned();
+            report["browser_connected"] =
+                json!(sessions.values().any(|other| other.view.browser_worker
+                    && other.view.status == "granted"
+                    && other.epoch == epoch
+                    && other.view.book_id.as_deref() == Some(book.as_str())
+                    && other.created.elapsed().as_secs() <= 3600));
+            return Ok(report);
+        }
         let outline = store
             .get_outline(book)
             .map_err(|_| err("access_denied", "授权作品当前不可用"))?;

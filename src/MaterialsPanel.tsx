@@ -10,6 +10,7 @@ import type {
   MaterialProposal,
 } from "./materialTypes";
 import { errorMessage } from "./workflowTypes";
+import { Dialog } from "./ui/Dialog";
 const names: Record<MaterialKind, string> = {
   setting: "设定",
   character: "角色",
@@ -158,8 +159,7 @@ export default function MaterialsPanel({
   const initialHandled = useRef(false);
   const listGeneration = useRef(0),
     cardGeneration = useRef(0),
-    mutating = useRef(false),
-    panel = useRef<HTMLElement>(null);
+    mutating = useRef(false);
   const dirty =
     !!card && !!draft && JSON.stringify(card) !== JSON.stringify(draft);
   const pendingCallback = useRef(onPendingChange);
@@ -248,57 +248,15 @@ export default function MaterialsPanel({
     };
   }, [bookId, api]);
   useEffect(() => {
-    const root = panel.current!,
-      previous = document.activeElement as HTMLElement | null;
-    const focusables = () =>
-      Array.from(
-        root.querySelectorAll<HTMLElement>(
-          'button:not(:disabled),input:not(:disabled),textarea:not(:disabled),select:not(:disabled),[tabindex="0"]',
-        ),
-      ).filter(el=>!el.closest("[inert]"));
-    const focusFirst = () => (focusables()[0] ?? root).focus();
-    const guard = (e: FocusEvent) => {
-      if (!root.contains(e.target as Node)) focusFirst();
-    };
     const key = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
         e.preventDefault();
         e.stopPropagation();
         saveRef.current();
-        return;
-      }
-      if (e.key === "Escape") {
-        if(historyOpenRef.current) return;
-        e.preventDefault();
-        requestClose.current();
-      }
-      if (e.key === "Tab") {
-        const elements = focusables(),
-          first = elements[0] ?? root,
-          last = elements.at(-1) ?? root;
-        if (
-          e.shiftKey &&
-          (document.activeElement === first || document.activeElement === root)
-        ) {
-          e.preventDefault();
-          last.focus();
-        } else if (
-          !e.shiftKey &&
-          (document.activeElement === last || document.activeElement === root)
-        ) {
-          e.preventDefault();
-          first.focus();
-        }
       }
     };
-    focusFirst();
-    document.addEventListener("focusin", guard);
-    root.addEventListener("keydown", key);
-    return () => {
-      document.removeEventListener("focusin", guard);
-      root.removeEventListener("keydown", key);
-      if (previous?.isConnected) previous.focus();
-    };
+    document.addEventListener("keydown", key, true);
+    return () => document.removeEventListener("keydown", key, true);
   }, []);
   function changeCategory(next: MaterialKind | "recycle") {
     if (!canLeave()) return;
@@ -567,23 +525,24 @@ export default function MaterialsPanel({
         (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
     );
   return (
-    <div className="review-backdrop">
-      <section
-        ref={panel}
-        tabIndex={-1}
-        className="materials-panel"
-        role="dialog"
-        aria-modal="true"
-        aria-label={foreshadowFocus ? "伏笔资料编辑" : "创作资料库"}
-      >
-        <header>
-          <h2>{foreshadowFocus ? "伏笔资料编辑" : "创作资料库"}</h2>
-          {api.organize && !foreshadowFocus && !organizing &&
-            <button onClick={() => { if (canLeave()) setOrganizing(true); }}>整理已有资料</button>}
-          <button aria-label={foreshadowFocus ? "返回全书伏笔" : "关闭资料库"} disabled={busy} onClick={close}>
-            ×
+    <Dialog
+      title={foreshadowFocus ? "伏笔资料编辑" : "创作资料库"}
+      label={foreshadowFocus ? "伏笔资料编辑" : "创作资料库"}
+      subtitle="按类别整理设定、资料与伏笔；修改只写入资料卡，不改正文。"
+      closeLabel={foreshadowFocus ? "返回全书伏笔" : "关闭资料库"}
+      className="materials-panel"
+      size="xl"
+      dismissible={!busy}
+      onClose={close}
+      headerActions={
+        api.organize && !foreshadowFocus && !organizing ? (
+          <button onClick={() => { if (canLeave()) setOrganizing(true); }}>
+            整理已有资料
           </button>
-        </header>
+        ) : undefined
+      }
+    >
+      <div className="materials-body">
         {organizing && api.organize && <MaterialOrganizationReview bookId={bookId} api={api.organize} fieldLabels={fields}
           onPending={setOrganizationPending} onClose={() => setOrganizing(false)}
           onApplied={async count => {
@@ -596,7 +555,7 @@ export default function MaterialsPanel({
             setNotice("已采纳 " + count + " 项资料。");
             setOrganizing(false);
           }} />}
-        {!organizing && !foreshadowFocus && <nav aria-label="资料类别">
+        {!organizing && !foreshadowFocus && <nav aria-label="资料类别" className="materials-nav">
           {(Object.keys(names) as MaterialKind[]).map((k) => (
             <button
               key={k}
@@ -1104,8 +1063,8 @@ export default function MaterialsPanel({
             )}
           </main>
         </div>
-      </section>
-    </div>
+      </div>
+    </Dialog>
   );
 }
 

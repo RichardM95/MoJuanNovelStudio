@@ -4,6 +4,8 @@ mod draft_recovery;
 pub use draft_recovery::*;
 #[cfg(all(feature = "desktop", target_os = "windows"))]
 pub mod desktop;
+#[cfg(all(feature = "desktop", target_os = "windows"))]
+mod fanqie_setup;
 pub mod files;
 
 pub mod workflow;
@@ -54,6 +56,9 @@ pub use txt_export::{ExportOptions,ExportPreview};
 
 pub mod chapter_split;
 pub use chapter_split::{SplitPreview,SplitOutcome};
+mod fanqie_jobs;
+pub mod fanqie_packet;
+pub use fanqie_packet::{FanqieChapter, FanqieDirectory, FanqiePacket};
 
 pub mod material_history;
 pub use material_history::{MaterialContentVersion,MaterialVersionSummary,MaterialVersionPage};

@@ -70,8 +70,14 @@ export const api: API = {
   },
   agentAccess: {
     status: () => invoke("desktop_agent_status"),
-    grant: (sessionId, bookId) => invoke("grant_desktop_agent", {sessionId, bookId}),
+    grant: (sessionId, bookId, fanqieSend) => invoke("grant_desktop_agent", {sessionId, bookId, fanqieSend}),
+    connectCodex: () => invoke("connect_codex"),
+    registerBrowser: () => invoke("register_fanqie_browser"),
     revoke: (sessionId) => invoke("revoke_desktop_agent", {sessionId}),
+  },
+  fanqie: {
+    directory: (bookId) => invoke("get_fanqie_directory", {bookId}),
+    packet: (bookId, epoch, expected) => invoke("get_fanqie_packet", {bookId, epoch, expected}),
   },
   replace: {
     preview: (bookId, query, replacement) => invoke("preview_book_replace", {bookId, query, replacement}),

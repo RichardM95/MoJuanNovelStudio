@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { RotateCcw, Trash2 } from "lucide-react";
 import type { LibraryState, Command } from "./types";
+import { Dialog } from "./ui/Dialog";
 type Item = {
   id: string;
   title: string;
@@ -111,9 +112,31 @@ export default function RecycleBin({
         </div>
       )}
       {pending && (
-        <div className="modal-backdrop">
+        <Dialog
+          title={`永久删除${pending.label}`}
+          closeLabel="关闭永久删除"
+          showClose={false}
+          size="sm"
+          dismissible={!busy}
+          onClose={() => setPending(null)}
+          footer={
+            <>
+              <button type="button" disabled={busy} onClick={() => setPending(null)}>
+                取消
+              </button>
+              <button
+                type="submit"
+                form="recycle-purge-form"
+                className="danger"
+                disabled={busy || typed !== pending.title}
+              >
+                确认永久删除
+              </button>
+            </>
+          }
+        >
           <form
-            className="modal"
+            id="recycle-purge-form"
             onSubmit={(e) => {
               e.preventDefault();
               if (typed !== pending.title) return;
@@ -127,41 +150,24 @@ export default function RecycleBin({
               });
             }}
           >
-            <h2>永久删除{pending.label}</h2>
-            <p>{pending.context}</p>
-            <p>
+            <p className="ui-meta">{pending.context}</p>
+            <p className="ui-meta">
               《{pending.title}》
               {pending.kind !== "chapter"
                 ? "及其全部下级内容（包括回收站中的内容）"
                 : ""}
               将从当前书库永久移除，无法在回收站恢复。独立备份不会删除。
             </p>
-            <label>
+            <label className="ui-field">
               输入名称确认
               <input
                 aria-label="输入名称确认"
-                autoFocus
                 value={typed}
                 onChange={(e) => setTyped(e.target.value)}
               />
             </label>
-            <div className="modal-actions">
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => setPending(null)}
-              >
-                取消
-              </button>
-              <button
-                className="danger"
-                disabled={busy || typed !== pending.title}
-              >
-                确认永久删除
-              </button>
-            </div>
           </form>
-        </div>
+        </Dialog>
       )}
     </section>
   );

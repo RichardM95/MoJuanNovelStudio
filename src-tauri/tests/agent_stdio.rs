@@ -31,7 +31,14 @@ fn mcp_requires_exact_version_and_initialization() {
     assert_eq!(out[1]["error"]["code"], -32602);
 }
 #[test]
-fn tools_are_read_and_propose_only() {
+fn negotiates_codex_tools_protocol_versions() {
+    for version in ["2025-03-26","2025-06-18","2025-11-25"] {
+        let response=run(vec![json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":version}})],true);
+        assert_eq!(response[0]["result"]["protocolVersion"],version);
+    }
+}
+#[test]
+fn tools_include_explicitly_authorized_draft_jobs() {
     let out = run(
         vec![
             json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25"}}),
@@ -42,7 +49,7 @@ fn tools_are_read_and_propose_only() {
         true,
     );
     assert_eq!(out.len(), 3);
-    assert_eq!(out[1]["result"]["tools"].as_array().unwrap().len(), 24);
+    assert_eq!(out[1]["result"]["tools"].as_array().unwrap().len(), 26);
     assert_eq!(out[2]["error"]["code"], -32602);
 }
 #[test]
@@ -195,7 +202,7 @@ fn planning_kinds_are_readonly_with_a_bounded_occurrence_listing() {
         true,
     );
     let tools = out[1]["result"]["tools"].as_array().unwrap();
-    assert_eq!(tools.len(), 24);
+    assert_eq!(tools.len(), 26);
     let kinds = tools
         .iter()
         .find(|t| t["name"] == "list_materials")

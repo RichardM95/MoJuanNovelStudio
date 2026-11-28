@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="popup.css"><title>逐章填表</title></head>
+<body><main><h1>墨卷逐章填表</h1><section aria-label="墨卷自动存稿"><h2>墨卷草稿任务</h2>
+<button id="connect" type="button">连接墨卷</button><button id="load-volumes" type="button">读取已授权作品</button>
+<p id="connection" role="status"></p><form id="binding" hidden>
+<label>墨卷卷名<select id="local-volume" required></select></label>
+<label>番茄作品名<input id="remote-book" required maxlength="150"></label>
+<label>番茄卷名<input id="remote-volume" required maxlength="150"></label>
+<label>本卷第一章在番茄的章号<input id="first-number" type="number" min="1" max="999999999" value="1" required></label>
+<button type="submit">绑定当前草稿箱页面</button></form></section>
+<h2>手动填稿</h2><p>一次填一章，核对后手动存草稿。</p>
+<label for="packet">粘贴墨卷复制的章稿</label>
+<textarea id="packet" rows="9" spellcheck="false"></textarea>
+<button id="example" type="button">载入假稿</button>
+<button id="preview" type="button">核对目标</button>
+<p id="target" hidden></p>
+<button id="fill" type="button" hidden>交给当前网页</button>
+<p id="status" role="status"></p>
+</main><script type="module" src="popup.mjs"></script></body></html>

@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import type { ExportAPI, ExportOptions, ExportPreview } from "./exportTypes";
 import type { Volume, Chapter } from "./types";
 import { errorMessage } from "./workflowTypes";
+import { Dialog } from "./ui/Dialog";
 const IMPORT_BYTE_LIMIT = 16 * 1024 * 1024;
 const EXPORT_BYTE_LIMIT = 32 * 1024 * 1024;
 const PREVIEW_TTL_MS = 10 * 60 * 1000;
@@ -148,16 +149,6 @@ export default function ExportPanel({
     if (locked.current) return;
     onClose();
   };
-  useEffect(() => {
-    const escape = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        close();
-      }
-    };
-    window.addEventListener("keydown", escape);
-    return () => window.removeEventListener("keydown", escape);
-  }, []);
   // This is advice only. A truncated preview is not a measurement, and
   // neither questionable metadata nor this timer changes the save workflow.
   const expiresAt = preview ? preview.expires_at * 1000 : 0;
@@ -199,108 +190,117 @@ export default function ExportPanel({
   }, [advise, expiresAt]);
 
   return (
-    <div className="modal-backdrop">
-      <section
-        className="modal txt-export"
-        role="dialog"
-        aria-modal="true"
-        aria-label="导出TXT"
-      >
-        <header>
-          <h2>导出TXT</h2>
-          <button onClick={close} disabled={busy} aria-label="关闭导出面板">
-            关闭
+    <Dialog
+      title="导出TXT"
+      subtitle="选择范围与格式，先生成预览，再保存到新文件。"
+      closeLabel="关闭导出面板"
+      className="export-panel"
+      size="md"
+      dismissible={!busy}
+      onClose={close}
+      footer={
+        preview ? (
+          <button className="primary" onClick={save} disabled={busy}>
+            保存TXT
           </button>
-        </header>
-        <label>
-          导出范围
-          <select
-            aria-label="导出范围"
-            disabled={saving.current}
-            value={options.scope}
-            onChange={(e) => {
-              const scope = e.target.value as ExportOptions["scope"];
-              change({
-                scope,
-                target_id:
-                  scope === "volume"
-                    ? (volumes[0]?.id ?? null)
-                    : scope === "chapter"
-                      ? (chapters[0]?.id ?? null)
-                      : null,
-              });
-            }}
-          >
-            <option value="book">全书</option>
-            <option value="volume">单卷</option>
-            <option value="chapter">单章</option>
-          </select>
-        </label>
-        {options.scope !== "book" && (
-          <label>
-            选择卷章
+        ) : undefined
+      }
+    >
+      <section className="ui-card">
+        <h3 className="ui-card-title">导出设置</h3>
+        <div className="ui-grid-2">
+          <label className="ui-field">
+            导出范围
             <select
-              aria-label="选择卷章"
+              aria-label="导出范围"
               disabled={saving.current}
-              value={options.target_id ?? ""}
-              onChange={(e) => change({ target_id: e.target.value })}
+              value={options.scope}
+              onChange={(e) => {
+                const scope = e.target.value as ExportOptions["scope"];
+                change({
+                  scope,
+                  target_id:
+                    scope === "volume"
+                      ? (volumes[0]?.id ?? null)
+                      : scope === "chapter"
+                        ? (chapters[0]?.id ?? null)
+                        : null,
+                });
+              }}
             >
-              <option value="" disabled>
-                请选择
-              </option>
-              {(options.scope === "volume" ? volumes : chapters).map((x) => (
-                <option key={x.id} value={x.id}>
-                  {x.title || "未命名"}
-                </option>
-              ))}
+              <option value="book">全书</option>
+              <option value="volume">单卷</option>
+              <option value="chapter">单章</option>
             </select>
           </label>
-        )}
-        <label>
-          <input
-            type="checkbox"
-            checked={options.include_metadata}
-            disabled={saving.current}
-            onChange={(e) => change({ include_metadata: e.target.checked })}
-          />
-          书名和作者
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            checked={options.include_headings}
-            disabled={saving.current}
-            onChange={(e) => change({ include_headings: e.target.checked })}
-          />
-          卷章标题
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            checked={options.bom}
-            disabled={saving.current}
-            onChange={(e) => change({ bom: e.target.checked })}
-          />
-          UTF-8 BOM
-        </label>
-        <label>
-          换行
-          <select
-            aria-label="换行"
-            value={options.newline}
-            disabled={saving.current}
-            onChange={(e) =>
-              change({ newline: e.target.value as "lf" | "crlf" })
-            }
-          >
-            <option value="crlf">CRLF（Windows）</option>
-            <option value="lf">LF</option>
-          </select>
-        </label>
-        <p>
+          {options.scope !== "book" && (
+            <label className="ui-field">
+              选择卷章
+              <select
+                aria-label="选择卷章"
+                disabled={saving.current}
+                value={options.target_id ?? ""}
+                onChange={(e) => change({ target_id: e.target.value })}
+              >
+                <option value="" disabled>
+                  请选择
+                </option>
+                {(options.scope === "volume" ? volumes : chapters).map((x) => (
+                  <option key={x.id} value={x.id}>
+                    {x.title || "未命名"}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          <label className="ui-field">
+            换行
+            <select
+              aria-label="换行"
+              value={options.newline}
+              disabled={saving.current}
+              onChange={(e) =>
+                change({ newline: e.target.value as "lf" | "crlf" })
+              }
+            >
+              <option value="crlf">CRLF（Windows）</option>
+              <option value="lf">LF</option>
+            </select>
+          </label>
+        </div>
+        <div className="export-checks">
+          <label className="export-check">
+            <input
+              type="checkbox"
+              checked={options.include_metadata}
+              disabled={saving.current}
+              onChange={(e) => change({ include_metadata: e.target.checked })}
+            />
+            书名和作者
+          </label>
+          <label className="export-check">
+            <input
+              type="checkbox"
+              checked={options.include_headings}
+              disabled={saving.current}
+              onChange={(e) => change({ include_headings: e.target.checked })}
+            />
+            卷章标题
+          </label>
+          <label className="export-check">
+            <input
+              type="checkbox"
+              checked={options.bom}
+              disabled={saving.current}
+              onChange={(e) => change({ bom: e.target.checked })}
+            />
+            UTF-8 BOM
+          </label>
+        </div>
+        <p className="ui-meta">
           卷章在所选范围内从1编号；换行统一为所选格式，正文不裁剪。仅新建文件，不覆盖同名文件。
         </p>
-        <p>
+        <p className="ui-meta">
           TXT 导出最多32 MiB；要保留作品结构、资料和历史，请使用 SQLite 备份。
         </p>
         <button
@@ -309,33 +309,34 @@ export default function ExportPanel({
         >
           生成预览
         </button>
-        {preview && (
-          <>
-            <p>
-              {preview.volumes}卷 · {preview.chapters}章 · {preview.bytes}字节 ·
-              UTF-8{preview.bom ? " BOM" : ""} · {preview.newline.toUpperCase()}
-            </p>
-            <p>
-              保存的是本次预览时刻的内容，10分钟内有效。
-              {preview.truncated
-                ? "仅显示前4000字，文件包含完整内容。"
-                : "以下为完整文本。"}
-              BOM单独标记，不显示为正文。
-            </p>
-            {advise && (
-              <p role="status">
-                本次预览超过16
-                MiB，不能作为同一个TXT文件整体再次导入。
-              </p>
-            )}
-            <pre aria-label="导出内容预览">{preview.text}</pre>
-            <button className="primary" onClick={save} disabled={busy}>
-              保存TXT
-            </button>
-          </>
-        )}
-        {message && <p role="status">{message}</p>}
       </section>
-    </div>
+      {preview && (
+        <section className="ui-card export-preview">
+          <h3 className="ui-card-title">预览</h3>
+          <p className="ui-meta">
+            {preview.volumes}卷 · {preview.chapters}章 · {preview.bytes}字节 ·
+            UTF-8{preview.bom ? " BOM" : ""} · {preview.newline.toUpperCase()}
+          </p>
+          <p className="ui-meta">
+            保存的是本次预览时刻的内容，10分钟内有效。
+            {preview.truncated
+              ? "仅显示前4000字，文件包含完整内容。"
+              : "以下为完整文本。"}
+            BOM单独标记，不显示为正文。
+          </p>
+          {advise && (
+            <p role="status" className="ui-meta">
+              本次预览超过16 MiB，不能作为同一个TXT文件整体再次导入。
+            </p>
+          )}
+          <pre aria-label="导出内容预览">{preview.text}</pre>
+        </section>
+      )}
+      {message && (
+        <p role="status" className="ui-meta">
+          {message}
+        </p>
+      )}
+    </Dialog>
   );
 }

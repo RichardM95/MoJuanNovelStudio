@@ -182,6 +182,8 @@ fn schema(c: &Connection, trusted: &Connection) -> Result<()> {
         .map_err(e)?;
     for t in q.query_map([], |r| r.get::<_, String>(0)).map_err(e)? {
         let t = t.map_err(e)?;
+        // Older snapshots predate the machine-local draft queue and browser bindings.
+        if matches!(t.as_str(), "fanqie_jobs" | "fanqie_bindings") && cols(c, &t)?.is_empty() { continue; }
         if (t == "foreshadow_occurrences" && generation < 1) || (t == "foreshadow_proposals" && generation < 2) { continue; }
         if (t=="material_content_versions"||t.starts_with("writing_")) && cols(c,&t)?.is_empty() {continue;}
         let sql: String = c

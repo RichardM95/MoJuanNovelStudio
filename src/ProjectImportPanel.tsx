@@ -8,6 +8,7 @@ import type {
   ProjectSelection,
 } from "./projectImportTypes";
 import { errorMessage } from "./workflowTypes";
+import { Dialog } from "./ui/Dialog";
 
 const roles = [
   ["manuscript", "正文 TXT", "txt"],
@@ -64,9 +65,7 @@ export default function ProjectImportPanel({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [now, setNow] = useState(Date.now);
-  const root = useRef<HTMLElement>(null);
   const inspectionRoot = useRef<HTMLDivElement>(null);
-  const chooseButton = useRef<HTMLButtonElement>(null);
   const selectionRef = useRef<ProjectSelection | null>(null);
   const detailSeq = useRef(0);
   const mounted = useRef(true);
@@ -81,56 +80,14 @@ export default function ProjectImportPanel({
 
   useEffect(() => {
     mounted.current = true;
-    const panel = root.current!;
-    const previous = document.activeElement as HTMLElement | null;
-    const controls = () =>
-      [
-        ...panel.querySelectorAll<HTMLElement>(
-          "summary,button:not(:disabled),select:not(:disabled),input:not(:disabled)",
-        ),
-      ].filter(
-        (element) =>
-          !element.closest("details:not([open])") ||
-          element.tagName === "SUMMARY",
-      );
-    const focus = () => (controls()[0] ?? panel).focus();
-    const guard = (event: FocusEvent) => {
-      if (!panel.contains(event.target as Node)) focus();
-    };
-    const key = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        event.stopPropagation();
-        close();
-      }
-      if (event.key === "Tab") {
-        const nodes = controls();
-        if (
-          !nodes.length ||
-          document.activeElement === panel ||
-          (event.shiftKey
-            ? document.activeElement === nodes[0]
-            : document.activeElement === nodes.at(-1))
-        ) {
-          event.preventDefault();
-          (nodes[event.shiftKey ? nodes.length - 1 : 0] ?? panel).focus();
-        }
-      }
-    };
-    chooseButton.current?.focus();
-    document.addEventListener("focusin", guard);
-    panel.addEventListener("keydown", key);
     const clock = setInterval(() => setNow(Date.now()), 1000);
     return () => {
       mounted.current = false;
       detailSeq.current++;
       clearInterval(clock);
-      document.removeEventListener("focusin", guard);
-      panel.removeEventListener("keydown", key);
       const old = selectionRef.current;
       if (old) void api.discard(old.id).catch(() => {});
       callbacks.current.onPendingChange(false);
-      if (previous?.isConnected) previous.focus();
     };
   }, [api]);
 
@@ -342,24 +299,26 @@ export default function ProjectImportPanel({
   }
 
   return (
-    <div className="modal-backdrop">
-      <section
-        ref={root}
-        tabIndex={-1}
-        className="modal txt-import project-import"
-        role="dialog"
-        aria-modal="true"
-        aria-label="导入作品文件夹"
-      >
-        <header>
-          <h2>导入作品文件夹</h2>
-          <button onClick={close} disabled={busy || !!receipt}>
-            关闭
+    <Dialog
+      title="导入作品文件夹"
+      subtitle="从文件夹读取正文、卷纲、章纲与资料卡，导入前逐项核对。"
+      closeLabel="关闭"
+      className="project-import"
+      size="lg"
+      dismissible={!busy && !receipt}
+      onClose={close}
+      footer={
+        preview ? (
+          <button className="primary" onClick={commit} disabled={busy || expired}>
+            确认导入新作品
           </button>
-        </header>
+        ) : undefined
+      }
+    >
+      <div className="project-import-body">
         {error && <p role="alert">{error}</p>}
         {receipt ? (
-          <div>
+          <div className="ui-card">
             <p role="status">正在核对本次导入结果。{receipt.error}</p>
             <button
               onClick={() => void run(() => check(receipt))}
@@ -369,7 +328,7 @@ export default function ProjectImportPanel({
             </button>
           </div>
         ) : (
-          <button ref={chooseButton} onClick={choose} disabled={busy}>
+          <button onClick={choose} disabled={busy}>
             选择作品文件夹
           </button>
         )}
@@ -686,16 +645,9 @@ export default function ProjectImportPanel({
                   ))}
               </div>
             )}
-            <button
-              className="primary"
-              onClick={commit}
-              disabled={busy || expired}
-            >
-              确认导入新作品
-            </button>
           </>
         )}
-      </section>
-    </div>
+      </div>
+    </Dialog>
   );
 }

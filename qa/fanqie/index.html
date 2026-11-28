@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>番茄章稿 · 离线实验</title>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'none'; base-uri 'none'; form-action 'none'">
+  <link rel="stylesheet" href="./lab.css">
+  <script defer src="./lab.js"></script>
+</head>
+<body>
+  <main>
+    <header><p class="tag">墨卷 · 离线实验</p><h1>逐章填稿对照</h1><p>两卷六章假稿。这个页面不登录、不联网，也不是番茄后台。</p></header>
+    <nav aria-label="实验组">
+      <button id="start-a">A 手动建章、手动填</button>
+      <button id="start-b">B 手动建章、一键填</button>
+      <button id="start-c">C 一键建章并填</button>
+    </nav>
+    <p id="progress">先选择一个实验组。</p>
+    <div id="work" hidden>
+      <section aria-label="墨卷样稿"><h2>待填章稿</h2><p id="expected"></p><pre id="source"></pre></section>
+      <section aria-label="模拟章节编辑器">
+        <h2>模拟章节编辑器</h2>
+        <div class="actions">
+          <button id="create">创建章节</button>
+          <button id="one">准备下一章</button>
+          <button id="interrupt">中止本组并丢弃本组记录</button>
+        </div>
+        <fieldset id="fields" disabled>
+          <legend>编辑字段</legend>
+          <label>目标卷<select id="volume"><option value="">请选择</option><option>归途</option><option>远航</option></select></label>
+          <label>章号<input id="number" inputmode="numeric"></label>
+          <label>章标题<input id="title"></label>
+          <label>正文<textarea id="body" rows="5"></textarea></label>
+          <div class="actions"><button id="fill">填入本章</button><button id="readback">核对完成</button><button id="save" disabled>存模拟草稿</button></div>
+        </fieldset>
+        <p id="status" role="status"></p>
+      </section>
+    </div>
+    <section id="results" hidden>
+      <h2>实验记录</h2><p id="summary"></p>
+      <table><thead><tr><th>组</th><th>章</th><th>核对秒数</th><th>操作</th><th>核对失败</th><th>总秒数</th></tr></thead><tbody></tbody></table>
+      <button id="copy-results">导出本次 CSV</button>
+    </section>
+  </main>
+</body>
+</html>

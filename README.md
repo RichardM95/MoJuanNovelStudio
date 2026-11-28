@@ -32,7 +32,7 @@
 
 ## 从源码构建
 
-在 Windows 上准备好 Node.js 22 LTS、Rust（MSVC）、Visual Studio Build Tools（C++ 桌面开发和 Windows SDK）以及 WebView2。在源码目录打开 PowerShell 并运行：
+在 Windows 上准备好 Node.js 22 LTS、Rust（MSVC）、Visual Studio Build Tools（C++ 桌面开发和 Windows SDK）以及 WebView2。前端依赖使用 Yarn 4 管理，首次构建前先用 Node 自带的 corepack 启用 Yarn（`corepack enable`）。在源码目录打开 PowerShell 并运行：
 
 ```powershell
 ./scripts/build-windows.ps1

@@ -18,6 +18,7 @@ import type {
   WritingChapterRead,
 } from "./writingTypes";
 import { errorMessage } from "./workflowTypes";
+import { Dialog } from "./ui/Dialog";
 import {
   captureDecision, decisionKey, WritingDecisionSession,
 } from "./writingDecision";
@@ -269,7 +270,6 @@ export default function WritingPanel({
     readRequired = useRef(false),
     seq = useRef(0),
     directorySeq = useRef(0),
-    root = useRef<HTMLElement>(null),
     predecessorPicker = useRef<HTMLLegendElement>(null),
     callbacks = useRef({ onReload, onClose, onPendingChange });
   callbacks.current = { onReload, onClose, onPendingChange };
@@ -470,45 +470,11 @@ export default function WritingPanel({
     setState(null);
     clearConfirmation();
     if (!recoveryOnly) void refresh();
-    const el = root.current!,
-      previous = document.activeElement as HTMLElement | null;
-    const controls = () =>
-      Array.from(
-        el.querySelectorAll<HTMLElement>(
-          "button:not(:disabled),input:not(:disabled),textarea:not(:disabled),select:not(:disabled),summary,.writing-context-text",
-        ),
-      );
-    const focus = () => controls()[0]?.focus();
-    const guard = (e: FocusEvent) => {
-      if (!el.contains(e.target as Node)) focus();
-    };
-    const key = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        close();
-      }
-      if (e.key === "Tab") {
-        const a = controls();
-        if (e.shiftKey && document.activeElement === a[0]) {
-          e.preventDefault();
-          a.at(-1)?.focus();
-        } else if (!e.shiftKey && document.activeElement === a.at(-1)) {
-          e.preventDefault();
-          a[0]?.focus();
-        }
-      }
-    };
-    focus();
-    document.addEventListener("focusin", guard);
-    el.addEventListener("keydown", key);
     return () => {
       alive.current = false;
       seq.current++;
       directorySeq.current++;
-      document.removeEventListener("focusin", guard);
-      el.removeEventListener("keydown", key);
       callbacks.current.onPendingChange(false);
-      if (previous?.isConnected) previous.focus();
     };
   }, [api, bookId, chapter.id, recoveryOnly]);
   function showDetail(id: string, p: WritingPack, q?: WritingProposal) {
@@ -1041,34 +1007,25 @@ export default function WritingPanel({
       ? "引用字段不存在"
       : unicodeQuote(value, start, end);
   }
+  const locked =
+    busy ||
+    needsRead ||
+    decision.phase !== "idle" ||
+    configDirty ||
+    reviewDirty ||
+    hasRestoredDraft;
   return (
-    <div className="modal-backdrop">
-      <section
-        ref={root}
-        className="modal writing-panel"
-        role="dialog"
-        aria-modal="true"
-        aria-label="章节写作约束"
-        onKeyDown={(e) => {
-          if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
-            e.preventDefault();
-            e.stopPropagation();
-          }
-        }}
-      >
-        <header>
-          <h2>章节写作约束 · {chapter.title}</h2>
-          <button
-            disabled={
-              busy || needsRead || decision.phase !== "idle" ||
-              configDirty || reviewDirty || hasRestoredDraft
-            }
-            onClick={close}
-          >
-            关闭写作约束
-          </button>
-        </header>
-        <p>
+    <Dialog
+      title={`章节写作约束 · ${chapter.title}`}
+      label="章节写作约束"
+      closeLabel="关闭写作约束"
+      className="modal writing-panel"
+      size="lg"
+      dismissible={!locked}
+      onClose={close}
+    >
+      <div className="writing-body">
+        <p className="ui-meta">
           依据引用只检查覆盖与范围，不代表语义一致。作者必须审阅设定、大纲与新稿；不会自动连接模型或发送书稿。
         </p>
         {reviewDirty && (
@@ -1784,7 +1741,7 @@ export default function WritingPanel({
           </button>
         )}
         {message && <p role="status">{message}</p>}
-      </section>
-    </div>
+      </div>
+    </Dialog>
   );
 }

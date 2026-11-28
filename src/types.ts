@@ -9,6 +9,7 @@ import type { TasksAPI } from "./taskTypes";
 import type { BookSearch } from "./searchTypes";
 import type { MaterialsAPI } from "./materialTypes";
 import type { WorkflowAPI } from "./workflowTypes";
+import type { FanqieAPI } from "./fanqieTypes";
 export type Book = {
   id: string;
   title: string;
@@ -52,6 +53,7 @@ export interface API {
   materials?: MaterialsAPI;
   searchBook?: BookSearch;
   workflow?: WorkflowAPI;
+  fanqie?: FanqieAPI;
   load(): Promise<LibraryState>;
   apply(command: Command): Promise<LibraryState>;
   exportBook(id: string): Promise<string | null>;

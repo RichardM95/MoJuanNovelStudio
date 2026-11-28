@@ -59,21 +59,21 @@
 
 ### 复跑命令（从源码根目录）
 
-已缓存锁定依赖的 Linux 可直接离线执行 Rust 命令。首次准备依赖时用正常的 Cargo 依赖下载或在下列命令中去掉 `--offline`；不需要本次执行器的私有缓存目录。前端用锁文件安装测试依赖（`npm ci`）。
+已缓存锁定依赖的 Linux 可直接离线执行 Rust 命令。首次准备依赖时用正常的 Cargo 依赖下载或在下列命令中去掉 `--offline`；不需要本次执行器的私有缓存目录。前端用锁文件安装测试依赖（`yarn install --immutable`）。
 
 ```sh
 # 只跑原真实管道场景，含 SQLite 备份/恢复及独立的章节历史返工分支。
 cargo test --offline --locked --manifest-path src-tauri/Cargo.toml --test stdio_process -- single_chapter_acceptance
 
 # 原创 App 走查及风险矩阵中引用的既有边界。
-npm test -- tests/SingleChapterAcceptance.test.tsx tests/AppWriting.test.tsx tests/WritingPanel.test.tsx
-npm test -- tests/SingleChapterAcceptance.test.tsx tests/HistoryPanel.test.tsx tests/HistoryApi.test.ts tests/AppHistoryGuard.test.tsx tests/ReviewPanel.test.tsx
+yarn test tests/SingleChapterAcceptance.test.tsx tests/AppWriting.test.tsx tests/WritingPanel.test.tsx
+yarn test tests/SingleChapterAcceptance.test.tsx tests/HistoryPanel.test.tsx tests/HistoryApi.test.ts tests/AppHistoryGuard.test.tsx tests/ReviewPanel.test.tsx
 
 # 全量，含独立计数的 stdio_process harness-free 与已知忽略项。
 cargo test --offline --locked --manifest-path src-tauri/Cargo.toml
 cargo build --offline --locked --manifest-path src-tauri/Cargo.toml --bin mojuan-agent --bin mojuan-agent-host
-npm test
-npm run build
+yarn test
+yarn build
 git diff --check
 ```
 

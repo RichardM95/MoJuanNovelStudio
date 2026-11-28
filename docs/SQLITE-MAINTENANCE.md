@@ -59,8 +59,8 @@ cargo test --locked --manifest-path src-tauri/Cargo.toml
 cargo test --locked --manifest-path src-tauri/Cargo.toml --test sqlite_runtime -- --nocapture
 cargo build --locked --manifest-path qa/longform-scale/Cargo.toml
 python3 scripts/longform_scale.py --binary <built-mojuan-longform-scale> --profile dev --smoke
-npm test
-npm run build
+yarn test
+yarn build
 ```
 
 `sqlite_runtime` verifies the maintained engine floor (it failed on old 3.46.0),

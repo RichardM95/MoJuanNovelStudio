@@ -225,6 +225,7 @@ impl Service {
         }
         migration.commit().map_err(err)?;
         crate::workflow::migrate(&conn).map_err(err)?;
+        crate::fanqie_jobs::migrate(&conn).map_err(err)?;
         crate::history_browser::migrate(&conn).map_err(err)?;
         crate::materials::migrate(&conn).map_err(err)?;
         crate::material_workflow::migrate(&conn).map_err(err)?;

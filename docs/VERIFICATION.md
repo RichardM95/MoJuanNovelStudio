@@ -29,9 +29,9 @@
 
 ## 复现
 ```sh
-npm ci
-npm test
-npm run build
+yarn install --immutable
+yarn test
+yarn build
 cargo test --manifest-path src-tauri/Cargo.toml
 cargo build --manifest-path src-tauri/Cargo.toml --bin mojuan-agent --bin mojuan-agent-host
 ```

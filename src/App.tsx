@@ -17,6 +17,7 @@ import {
   Library,
   Bot,
   History,
+  ClipboardList,
 } from "lucide-react";
 import type { API, LibraryState, Chapter, Command } from "./types";
 import { SAVE_UNKNOWN, SaveQueue } from "./saveQueue";
@@ -40,6 +41,8 @@ import ForeshadowPanel from "./ForeshadowPanel";
 import type { ForeshadowReviewSession } from "./ForeshadowProposalPanel";
 import SearchPanel from "./SearchPanel";
 import TasksPanel from "./TasksPanel";
+import FanqieWorkspace from "./FanqieWorkspace";
+import { Dialog } from "./ui/Dialog";
 import { errorMessage } from "./workflowTypes";
 const empty: LibraryState = { books: [], volumes: [], chapters: [] };
 type WritingTarget = {
@@ -95,6 +98,7 @@ export default function App({ api }: { api: API }) {
     [exportOpen, setExportOpen] = useState(false),
     [importOpen, setImportOpen] = useState<false | "txt" | "project">(false),
     [agentAccessOpen, setAgentAccessOpen] = useState(false),
+    [fanqieOpen, setFanqieOpen] = useState(false),
     [initialMaterialId, setInitialMaterialId] = useState<string | undefined>();
   const [writingTarget, setWritingTarget] = useState<WritingTarget | null>(null);
   const [writingDecisions] = useState(() => new WritingDecisionSession());
@@ -508,7 +512,7 @@ export default function App({ api }: { api: API }) {
   };
   return (
     <div className="app">
-      <aside className="rail" inert={foreshadowOpen || !!writingTarget}>
+      <aside className="rail" inert={foreshadowOpen || fanqieOpen || !!writingTarget}>
         <div className="brand">
           <img className="brand-logo" src="/mojuan-logo.png" alt="" />
           <span>
@@ -518,6 +522,7 @@ export default function App({ api }: { api: API }) {
         <nav>
           <button
             className={!trash ? "active" : ""}
+            aria-current={!trash ? "page" : undefined}
             onClick={() =>
               run(async () => {
                 setBook(null);
@@ -531,6 +536,7 @@ export default function App({ api }: { api: API }) {
           </button>
           <button
             className={trash ? "active" : ""}
+            aria-current={trash ? "page" : undefined}
             onClick={() =>
               run(async () => {
                 setBook(null);
@@ -580,7 +586,7 @@ export default function App({ api }: { api: API }) {
         </div>
       </aside>
       <main
-        className={book ? "editor-main" : "shelf-main"}
+        className={`shell-main ${book ? "editor-main" : "shelf-main"}`}
         inert={foreshadowOpen || !!writingTarget}>
         {api.writing && api.materials && decisionScopes.size > 0 && (
           <details className="writing-recovery-links">
@@ -780,6 +786,12 @@ export default function App({ api }: { api: API }) {
               </div>
             )}
           </section>
+        ) : fanqieOpen && api.fanqie ? (
+          <FanqieWorkspace
+            books={data.books}
+            api={api.fanqie}
+            onExit={() => setFanqieOpen(false)}
+          />
         ) : (
           <div className="workspace">
             <header className="editor-top">
@@ -843,6 +855,9 @@ export default function App({ api }: { api: API }) {
                   书内搜索
                 </button>
               )}
+              {(api.tasks || api.replace || api.searchBook) && (api.foreshadow || api.materials || api.agentAccess) && (
+                <span className="tool-divider" aria-hidden="true" />
+              )}
               {api.foreshadow && (
                 <button disabled={busy} onClick={() => void run(async () => {
                   // run() has flushed pending prose before either occurrence review path opens.
@@ -866,6 +881,29 @@ export default function App({ api }: { api: API }) {
               )}
               {api.agentAccess && (
                 <button disabled={busy} onClick={() => void run(async () => setAgentAccessOpen(true))}><Bot size={15} />智能体连接</button>
+              )}
+              {(api.foreshadow || api.materials || api.agentAccess) && api.fanqie && (
+                <span className="tool-divider" aria-hidden="true" />
+              )}
+              {api.fanqie && (
+                <button
+                  disabled={busy}
+                  onClick={() => {
+                    if (composing.current) {
+                      setError("请先完成输入法组字，再打开番茄章稿。");
+                      return;
+                    }
+                    void run(async () => {
+                      setFanqieOpen(true);
+                    });
+                  }}
+                >
+                  <ClipboardList size={15} />
+                  番茄章稿
+                </button>
+              )}
+              {(api.foreshadow || api.materials || api.agentAccess || api.fanqie) && api.workflow && (
+                <span className="tool-divider" aria-hidden="true" />
               )}
               {api.workflow && (
                 <button
@@ -1296,9 +1334,31 @@ export default function App({ api }: { api: API }) {
         />
       )}
       {form && (
-        <div className="modal-backdrop">
+        <Dialog
+          title={form.heading}
+          closeLabel="关闭表单"
+          showClose={false}
+          size="sm"
+          dismissible={!busy}
+          onClose={() => setForm(null)}
+          footer={
+            <>
+              <button type="button" disabled={busy} onClick={() => setForm(null)}>
+                取消
+              </button>
+              <button
+                type="submit"
+                form="app-title-form"
+                className="primary"
+                disabled={busy || !form.title.trim()}
+              >
+                {busy ? "保存中…" : "确定"}
+              </button>
+            </>
+          }
+        >
           <form
-            className="modal"
+            id="app-title-form"
             onSubmit={(e) => {
               e.preventDefault();
               const f = form;
@@ -1308,11 +1368,9 @@ export default function App({ api }: { api: API }) {
               });
             }}
           >
-            <h2>{form.heading}</h2>
-            <label>
+            <label className="ui-field">
               名称
               <input
-                autoFocus
                 required
                 maxLength={200}
                 value={form.title}
@@ -1320,7 +1378,7 @@ export default function App({ api }: { api: API }) {
               />
             </label>
             {form.author !== undefined && (
-              <label>
+              <label className="ui-field">
                 作者
                 <input
                   maxLength={100}
@@ -1329,27 +1387,20 @@ export default function App({ api }: { api: API }) {
                 />
               </label>
             )}
-            <div className="modal-actions">
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => setForm(null)}
-              >
-                取消
-              </button>
-              <button className="primary" disabled={busy || !form.title.trim()}>
-                {busy ? "保存中…" : "确定"}
-              </button>
-            </div>
           </form>
-        </div>
+        </Dialog>
       )}
       {confirm && (
-        <div className="modal-backdrop">
-          <section className="modal" role="dialog" aria-label="确认操作">
-            <h2>确认操作</h2>
-            <p>{confirm.text}</p>
-            <div className="modal-actions">
+        <Dialog
+          title="确认操作"
+          label="确认操作"
+          closeLabel="关闭确认操作"
+          showClose={false}
+          size="sm"
+          dismissible={!busy}
+          onClose={() => setConfirm(null)}
+          footer={
+            <>
               <button disabled={busy} onClick={() => setConfirm(null)}>
                 取消
               </button>
@@ -1366,9 +1417,11 @@ export default function App({ api }: { api: API }) {
               >
                 确认
               </button>
-            </div>
-          </section>
-        </div>
+            </>
+          }
+        >
+          <p className="ui-meta">{confirm.text}</p>
+        </Dialog>
       )}
     </div>
   );

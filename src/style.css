@@ -307,15 +307,6 @@ textarea::placeholder {
   border-radius: 50%;
   box-shadow: 0 0 0 3px #6fae9222;
 }
-main {
-  margin-left: 208px;
-  flex: 1;
-  min-width: 0;
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  overflow-y: auto;
-}
 .editor-main {
   overflow: hidden;
 }
@@ -1224,16 +1215,8 @@ h1 {
     transform: translateY(-6px);
   }
 }
-.modal-backdrop {
-  position: fixed;
-  z-index: 20;
-  inset: 0;
-  background: #16282e73;
-  backdrop-filter: blur(2px);
-  display: grid;
-  place-items: center;
-  padding: 24px;
-  animation: fade-in 0.18s ease;
+.modal-backdrop-removed {
+  display: none;
 }
 @keyframes fade-in {
   from {
@@ -1339,9 +1322,6 @@ h1 {
     width: 168px;
     padding: 22px 10px;
   }
-  main {
-    margin-left: 168px;
-  }
   .shelf {
     padding: 36px 30px 60px;
   }
@@ -1380,9 +1360,6 @@ h1 {
   }
   .local-dot {
     display: none;
-  }
-  main {
-    margin-left: 64px;
   }
   .shelf {
     padding: 26px 18px 48px;
@@ -1547,15 +1524,8 @@ h1 {
   background: #7c2d25;
   border-color: #7c2d25;
 }
-.review-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 30;
-  background: #172d4080;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
+.review-backdrop-removed {
+  display: none;
 }
 .review-panel {
   width: min(1100px, 96vw);
@@ -1905,17 +1875,8 @@ h1 {
 }
 
 /* 面板统一外观 */
-.review-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 30;
-  background: #16282e73;
-  backdrop-filter: blur(2px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-  animation: fade-in 0.18s ease;
+.review-backdrop-removed-2 {
+  display: none;
 }
 .review-panel,
 .materials-panel,

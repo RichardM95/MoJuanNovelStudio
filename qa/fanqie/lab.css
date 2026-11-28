@@ -1,0 +1,102 @@
+:root {
+  font:
+    16px/1.55 system-ui,
+    sans-serif;
+  color: #26372e;
+  background: #f7f5ed;
+}
+* {
+  box-sizing: border-box;
+}
+[hidden] {
+  display: none !important;
+}
+main {
+  max-width: 960px;
+  margin: auto;
+  padding: clamp(16px, 4vw, 48px);
+}
+h1,
+h2,
+p {
+  margin: 0 0 0.55em;
+}
+.tag {
+  font-weight: bold;
+  color: #496453;
+  letter-spacing: 0.09em;
+}
+nav,
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+button {
+  font: inherit;
+  padding: 6px 12px;
+  border: 1px solid #718176;
+  border-radius: 6px;
+  background: #edf4e9;
+  color: inherit;
+}
+button:not(:disabled) {
+  cursor: pointer;
+}
+button:disabled {
+  opacity: 0.5;
+}
+:focus-visible {
+  outline: 2px solid #146a4c;
+  outline-offset: 2px;
+}
+#progress {
+  margin-top: 20px;
+  font-weight: bold;
+}
+#work {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  gap: 16px;
+}
+section {
+  padding: 16px;
+  border: 1px solid #cbd2c4;
+  border-radius: 10px;
+  background: #fffefa;
+}
+#results {
+  margin-top: 16px;
+  overflow-x: auto;
+}
+pre {
+  font: inherit;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+fieldset {
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid #d8d8ce;
+}
+label {
+  display: grid;
+  gap: 3px;
+  margin: 5px 0 12px;
+}
+input,
+textarea,
+select {
+  font: inherit;
+  padding: 5px;
+  color: inherit;
+  border: 1px solid #a7b2a6;
+  border-radius: 4px;
+  width: 100%;
+}
+th,
+td {
+  text-align: left;
+  padding: 5px 8px;
+}

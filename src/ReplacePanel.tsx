@@ -6,6 +6,7 @@ import type {
   ReplaceOutcome,
 } from "./replaceTypes";
 import { errorMessage } from "./workflowTypes";
+import { Dialog } from "./ui/Dialog";
 export default function ReplacePanel({
   bookId,
   api,
@@ -41,7 +42,6 @@ export default function ReplacePanel({
     mounted = useRef(true),
     writeLock = useRef(false),
     readLock = useRef(false),
-    root = useRef<HTMLElement>(null),
     callbacks = useRef({ onClose, onPendingChange, onCommitted });
   callbacks.current = { onClose, onPendingChange, onCommitted };
   const blocked = committing || reloading || needsRead;
@@ -79,52 +79,16 @@ export default function ReplacePanel({
   }, [blocked]);
   useEffect(() => {
     mounted.current = true;
-    const panel = root.current!,
-      previous = document.activeElement as HTMLElement | null;
-    const focusable = () =>
-      Array.from(
-        panel.querySelectorAll<HTMLElement>(
-          "button:not(:disabled),input:not(:disabled),textarea:not(:disabled)",
-        ),
-      );
-    const focus = () => focusable()[0]?.focus();
-    const guard = (e: FocusEvent) => {
-      if (!panel.contains(e.target as Node)) focus();
-    };
-    const key = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        close();
-      }
-      if (e.key === "Tab") {
-        const list = focusable(),
-          first = list[0],
-          last = list.at(-1);
-        if (e.shiftKey && document.activeElement === first) {
-          e.preventDefault();
-          last?.focus();
-        } else if (!e.shiftKey && document.activeElement === last) {
-          e.preventDefault();
-          first?.focus();
-        }
-      }
-    };
-    focus();
-    document.addEventListener("focusin", guard);
-    panel.addEventListener("keydown", key);
     const tick = setInterval(() => setNow(Date.now()), 1000);
     return () => {
       mounted.current = false;
       seq.current++;
       detailSeq.current++;
       clearInterval(tick);
-      document.removeEventListener("focusin", guard);
-      panel.removeEventListener("keydown", key);
       const old = candidateRef.current;
       candidateRef.current = null;
       if (old) void api.discard(old.id).catch(() => {});
       callbacks.current.onPendingChange(false);
-      if (previous?.isConnected) previous.focus();
     };
   }, [api]);
   useEffect(() => {
@@ -247,25 +211,49 @@ export default function ReplacePanel({
     }
   }
   return (
-    <div className="modal-backdrop">
-      <section
-        ref={root}
-        className="modal book-replace"
-        role="dialog"
-        aria-modal="true"
-        aria-label="作品正文替换"
-      >
-        <header>
-          <h2>作品正文替换</h2>
-          <button disabled={blocked} onClick={close} aria-label="关闭替换面板">
-            关闭
+    <Dialog
+      title="作品正文替换"
+      subtitle="仅替换当前作品的活动章节正文，不改标题或资料。"
+      closeLabel="关闭替换面板"
+      className="book-replace"
+      size="xl"
+      dismissible={!blocked}
+      onClose={close}
+      footer={
+        confirm ? (
+          <>
+            <button className="ghost" onClick={() => setConfirm(false)}>
+              返回预览
+            </button>
+            <button
+              className="primary"
+              disabled={blocked || expired}
+              onClick={() => void commit()}
+            >
+              确认替换
+            </button>
+          </>
+        ) : candidate?.total_matches ? (
+          <button
+            className="primary"
+            disabled={expired || blocked}
+            onClick={() => setConfirm(true)}
+          >
+            替换这些正文
           </button>
-        </header>
-        <p>
+        ) : needsRead && !reloading ? (
+          <button onClick={() => void reload()}>
+            {uncertain ? "刷新正文核对" : "重新加载正文"}
+          </button>
+        ) : undefined
+      }
+    >
+      <section className="ui-card">
+        <p className="ui-meta">
           仅替换当前作品的活动章节正文，不改标题或资料。精确字面匹配，原稿保留在章节历史。
         </p>
-        <form onSubmit={(e) => void preview(e)}>
-          <label>
+        <form className="replace-form" onSubmit={(e) => void preview(e)}>
+          <label className="ui-field">
             查找内容
             <input
               aria-label="查找内容"
@@ -277,7 +265,7 @@ export default function ReplacePanel({
               }}
             />
           </label>
-          <label>
+          <label className="ui-field">
             替换为
             <input
               aria-label="替换为"
@@ -293,108 +281,97 @@ export default function ReplacePanel({
             {loading ? "正在预览…" : "预览替换"}
           </button>
         </form>
-        <p className="replace-hint">
+        <p className="ui-meta replace-hint">
           替换内容可留空。一次最多500章、10万处；超限不执行部分替换。
         </p>
-        {error && <p role="alert">{error}</p>}
-        {uncertain && needsRead && <p role="alert">替换结果未确认，请先刷新正文核对，再决定是否重新预览。</p>}
-        {candidate && (
-          <>
-            <p>
-              将把“{candidate.query}”替换为
-              {candidate.replacement ? `“${candidate.replacement}”` : "空文本"}
-              ，共{candidate.chapters.length}章、{candidate.total_matches}处。
-            </p>
-            {expired ? (
-              <p role="alert">预览已过期，请重新预览。</p>
-            ) : (
-              <p>
-                有效至
-                {new Date(candidate.expires_at * 1000).toLocaleTimeString()}
-                ；任何章节变化都需重新预览。
-              </p>
-            )}
-            {!candidate.total_matches ? (
-              <p>没有匹配的正文。</p>
-            ) : (
-              <>
-                <ul className="replace-chapters">
-                  {candidate.chapters.map((c) => (
-                    <li key={c.id}>
-                      <button
-                        aria-label={`查看 ${c.title}`}
-                        aria-pressed={selected === c.id}
-                        onClick={() => void show(c.id)}
-                      >
-                        {c.title} · {c.matches}处
-                      </button>
-                      <div className="replace-snippets">
-                        <p>原：{c.before_snippet}</p>
-                        <p>后：{c.after_snippet}</p>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-                {detailLoading && <p>正在读取所选章节…</p>}
-                {detail && (
-                  <div className="diff-columns">
-                    <article>
-                      <h3>替换前</h3>
-                      <pre>{detail.before}</pre>
-                    </article>
-                    <article>
-                      <h3>替换后</h3>
-                      <pre>{detail.after}</pre>
-                    </article>
-                  </div>
-                )}
-                <button
-                  className="primary"
-                  disabled={expired || blocked || confirm}
-                  onClick={() => setConfirm(true)}
-                >
-                  替换这些正文
-                </button>
-                {confirm && (
-                  <section aria-label="确认正文替换">
-                    <p>
-                      确认替换上述{candidate.chapters.length}章、
-                      {candidate.total_matches}
-                      处？整次修改同时提交，可从章节历史逐章恢复。
-                    </p>
-                    <button className="ghost" onClick={() => setConfirm(false)}>
-                      返回预览
-                    </button>
-                    <button
-                      className="primary"
-                      disabled={blocked || expired}
-                      onClick={() => void commit()}
-                    >
-                      确认替换
-                    </button>
-                  </section>
-                )}
-              </>
-            )}
-          </>
-        )}
-        {committing && <p role="status">正在提交，请勿关闭…</p>}
-        {outcome && (
-          <p role="status">
-            已替换{outcome.chapters}章，共{outcome.matches}处。
-          </p>
-        )}
-        {reloading && <p>正在重新读取正文…</p>}
-        {reloadError && <p role="alert">{reloadError}</p>}
-        {needsRead && !reloading && (
-          <button onClick={() => void reload()}>
-            {uncertain ? "刷新正文核对" : "重新加载正文"}
-          </button>
-        )}
-        {uncertain && !needsRead && (
-          <p>已重新读取正文，请先核对内容；再次修改需重新预览。</p>
-        )}
       </section>
-    </div>
+      {error && <p role="alert">{error}</p>}
+      {uncertain && needsRead && (
+        <p role="alert">
+          替换结果未确认，请先刷新正文核对，再决定是否重新预览。
+        </p>
+      )}
+      {candidate && (
+        <section className="ui-card">
+          <p className="ui-meta">
+            将把“{candidate.query}”替换为
+            {candidate.replacement ? `“${candidate.replacement}”` : "空文本"}
+            ，共{candidate.chapters.length}章、{candidate.total_matches}处。
+          </p>
+          {expired ? (
+            <p role="alert" className="ui-meta">
+              预览已过期，请重新预览。
+            </p>
+          ) : (
+            <p className="ui-meta">
+              有效至
+              {new Date(candidate.expires_at * 1000).toLocaleTimeString()}
+              ；任何章节变化都需重新预览。
+            </p>
+          )}
+          {!candidate.total_matches ? (
+            <p className="ui-meta">没有匹配的正文。</p>
+          ) : (
+            <>
+              <ul className="replace-chapters">
+                {candidate.chapters.map((c) => (
+                  <li key={c.id}>
+                    <button
+                      aria-label={`查看 ${c.title}`}
+                      aria-pressed={selected === c.id}
+                      onClick={() => void show(c.id)}
+                    >
+                      {c.title} · {c.matches}处
+                    </button>
+                    <div className="replace-snippets">
+                      <p>原：{c.before_snippet}</p>
+                      <p>后：{c.after_snippet}</p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+              {detailLoading && <p className="ui-meta">正在读取所选章节…</p>}
+              {detail && (
+                <div className="diff-columns">
+                  <article>
+                    <h3>替换前</h3>
+                    <pre>{detail.before}</pre>
+                  </article>
+                  <article>
+                    <h3>替换后</h3>
+                    <pre>{detail.after}</pre>
+                  </article>
+                </div>
+              )}
+            </>
+          )}
+        </section>
+      )}
+      {confirm && candidate && (
+        <section aria-label="确认正文替换" className="ui-confirm">
+          <p>
+            确认替换上述{candidate.chapters.length}章、{candidate.total_matches}
+            处？整次修改同时提交，可从章节历史逐章恢复。
+          </p>
+        </section>
+      )}
+      {committing && (
+        <p role="status" className="ui-meta">
+          正在提交，请勿关闭…
+        </p>
+      )}
+      {outcome && (
+        <p role="status" className="ui-meta">
+          已替换{outcome.chapters}章，共{outcome.matches}处。
+        </p>
+      )}
+      {reloading && <p className="ui-meta">正在重新读取正文…</p>}
+      {reloadError && <p role="alert">{reloadError}</p>}
+      {uncertain && !needsRead && (
+        <p className="ui-meta">
+          已重新读取正文，请先核对内容；再次修改需重新预览。
+        </p>
+      )}
+    </Dialog>
   );
 }

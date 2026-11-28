@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import type { BackupAPI, BackupJob } from "./backupTypes";
 import { errorMessage } from "./workflowTypes";
+import { Dialog } from "./ui/Dialog";
 const stoppedRead = Symbol("stopped backup status read");
 type ShelfReload = { jobId: string; pending: boolean; error: string };
 const unfinished = (job: BackupJob | null) =>
@@ -53,7 +54,6 @@ export default function BackupPanel({
     uncertainRef = useRef(false),
     readWaitRef = useRef<AbortController | null>(null),
     jobRef = useRef(job),
-    panel = useRef<HTMLElement>(null),
     pendingRef = useRef(false),
     onCloseRef = useRef(onClose),
     pendingCallback = useRef(onPendingChange),
@@ -93,53 +93,6 @@ export default function BackupPanel({
     }
     onCloseRef.current();
   };
-  useEffect(() => {
-    const root = panel.current!,
-      previous = document.activeElement as HTMLElement | null;
-    const focusables = () =>
-      Array.from(
-        root.querySelectorAll<HTMLElement>(
-          'button:not(:disabled),[tabindex="0"]',
-        ),
-      );
-    const focusFirst = () => (focusables()[0] ?? root).focus();
-    const guard = (e: FocusEvent) => {
-      if (!root.contains(e.target as Node)) focusFirst();
-    };
-    const keys = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        e.stopPropagation();
-        requestClose();
-      }
-      if (e.key === "Tab") {
-        const nodes = focusables(),
-          first = nodes[0] ?? root,
-          last = nodes.at(-1) ?? root;
-        if (
-          e.shiftKey &&
-          (document.activeElement === first || document.activeElement === root)
-        ) {
-          e.preventDefault();
-          last.focus();
-        } else if (
-          !e.shiftKey &&
-          (document.activeElement === last || document.activeElement === root)
-        ) {
-          e.preventDefault();
-          first.focus();
-        }
-      }
-    };
-    focusFirst();
-    document.addEventListener("focusin", guard);
-    root.addEventListener("keydown", keys);
-    return () => {
-      document.removeEventListener("focusin", guard);
-      root.removeEventListener("keydown", keys);
-      if (previous?.isConnected) previous.focus();
-    };
-  }, []);
   function setUnknown(value: boolean) {
     uncertainRef.current = value;
     setUncertain(value);
@@ -390,23 +343,17 @@ export default function BackupPanel({
   const expired = !!job?.expires_at && Date.now() >= job.expires_at * 1000;
   const jobReload = shelfReload?.jobId === job?.id ? shelfReload : null;
   return (
-    <div className="review-backdrop">
-      <section
-        className="backup-panel"
-        role="dialog"
-        aria-modal="true"
-        aria-label="备份与恢复"
-        ref={panel}
-        tabIndex={-1}
-      >
-        <header>
-          <h2>备份与恢复</h2>
-          <button aria-label="关闭备份面板" onClick={requestClose}>
-            ×
-          </button>
-        </header>
-        <p>只在本机处理。SQLite 文件上限512 MiB，兼容JSON上限64 MiB。</p>
-        <nav>
+    <Dialog
+      title="备份与恢复"
+      subtitle="只在本机处理。SQLite 文件上限 512 MiB，兼容 JSON 上限 64 MiB。"
+      closeLabel="关闭备份面板"
+      className="backup-panel"
+      size="lg"
+      dismissible={!pending}
+      onClose={requestClose}
+    >
+      <div className="backup-body">
+        <nav className="backup-actions">
           <button disabled={pending} onClick={() => void action("export")}>
             创建SQLite备份
           </button>
@@ -437,7 +384,7 @@ export default function BackupPanel({
           </button>
         )}
         {job && (
-          <section aria-label="备份作业">
+          <section className="ui-card" aria-label="备份作业">
             <h3>{statusNames[job.status]}</h3>
             {job.source_name && <p>{job.source_name}</p>}
             <p>
@@ -596,7 +543,7 @@ export default function BackupPanel({
             )}
           </section>
         )}
-      </section>
-    </div>
+      </div>
+    </Dialog>
   );
 }

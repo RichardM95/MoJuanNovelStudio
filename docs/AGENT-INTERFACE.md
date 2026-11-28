@@ -5,7 +5,7 @@
 - `Service` 为唯一写入者。Windows 桌面的编辑命令和 Broker 共用同一书库连接。连接授权校验、整库 epoch 校验和业务调用持同一个 Service 锁。
 - Windows 实机测试使用生产 `mojuan-agent.exe` 通过 stdio MCP 连接命名管道，核对申请、单书授权、按章检索与撤销。Unix socket 测试需在允许本机套接字的环境中单独运行。
 - Windows 使用限本机和当前 Windows 用户的命名管道。任一客户端还须在桌面获准访问具体作品。管道名称不可用时，连接面板显示启动失败。 [Windows 命名管道访问控制](https://learn.microsoft.com/en-us/windows/win32/ipc/named-pipe-security-and-access-rights)
-- 无模型请求、无网络监听、无外部稿件传输实现。将 CLI 接到其他模型客户端之后，数据是否被该客户端上传是客户端自身行为；只有信任该客户端时才授权。
+- 本机接口通过命名管道传输。单独授权番茄存稿后，浏览器扩展可将指定章节写入目标草稿箱。将 CLI 接到其他模型客户端之后，数据是否被该客户端上传是客户端自身行为；只有信任该客户端时才授权。
 
 ## 构建与验收
 
@@ -50,15 +50,27 @@ host 必须在人工操作员终端运行，拒绝管道 stdin。目录必须当
 
 ```sh
 mojuan-agent --socket /absolute/path/private-agent/agent.sock --name my-local-agent
-# 或仅支持 MCP 2025-11-25 的 tools-only stdio：
+# 或支持 2025-03-26、2025-06-18、2025-11-25 的 tools-only MCP stdio：
 mojuan-agent --socket /absolute/path/private-agent/agent.sock --name my-local-agent --mcp
 ```
 
-CLI 第一次工具调用自动申请 pending，保持同一 socket，断线不重连、不自动重放。先发 `session_status`，等待 GUI/host 授权后操作。每行一个 JSON，stdout 只含 JSON。MCP 必须 initialize 指定 `2025-11-25`，然后 `notifications/initialized`；不宣称支持新版协议、resources、prompts、sampling。
+CLI 第一次工具调用自动申请 pending，保持同一 socket，断线不重连、不自动重放。先发 `session_status`，等待 GUI/host 授权后操作。每行一个 JSON，stdout 只含 JSON。MCP 必须 initialize 协商上述一个版本，然后 `notifications/initialized`；不宣称支持新版协议、resources、prompts、sampling。
+
+## 从 Codex 送入番茄草稿箱
+
+1. 在墨卷「智能体连接」点击「连接 Codex」和「配置番茄浏览器扩展」。前者通过本机 Codex CLI 注册 MCP，后者为当前 Windows 用户登记 Chrome 和 Edge 原生消息主机，并显示随安装包提供的扩展目录。按提示加载扩展。
+2. Codex 调用 `session_status` 后，在墨卷给对应会话选择「授权当前作品并允许番茄存稿」。登录番茄，打开目标作品和卷的草稿箱，点击扩展「连接墨卷」，在墨卷刷新并授权该浏览器连接。在扩展读取已授权作品，选择本地卷，核对番茄作品名、卷名、该卷第一章编号，绑定当前页面。绑定按书库、作品和卷保存。
+3. 只在作者明确点名发送时使用 `create_fanqie_draft_job {chapter_ids,idempotency_key}`。从授权书的目录确定章 ID，按作者指定顺序一次提交 1–50 章。同一指令重试沿用原键。仅涉及正式保存版本。
+4. 用 `get_fanqie_draft_job {job_id}` 约每 4 秒查看逐章结果。`verified` 表示已从草稿箱重新打开并核对，`exists` 表示已有一致草稿，`review` 表示请作者核对原因和草稿箱，其后的 `pending` 章节尚未执行。`checking` 表示本章处理中。`browser_connected` 为 false 时提示作者重连和授权扩展。
+5. 若会话失效，重新连接并授权。重新以相同章节和请求键提交，可接续原任务；已开始但回执丢失的章先只查草稿箱。修改章稿、绑定或处理冲突后，明确指定剩余章节，以新请求键创建任务。
+
+需要打开已有独立验收书库时，先关闭其他墨卷窗口，再运行 `mojuan.exe --library-dir "包含 library.db 的绝对目录"`。
+
+安装包内包含两个桥接程序。开发环境可用 `cargo build --manifest-path src-tauri/Cargo.toml --bin mojuan-agent --bin mojuan-fanqie-host` 构建到桌面程序同目录。首次真实页面验收应使用作者指定的测试作品与章节。自动存稿的 DOM 与回读验证范围见[扩展说明](../tools/fanqie-browser-extension/README.md)。
 
 ## 请求契约
 
-JSON 和 MCP 共用 24 个工具与同一套授权。
+JSON 和 MCP 共用 26 个工具。两项番茄草稿工具需要作者单独授予存稿权限。
 
 CLI：`{"method":"get_chapter","params":{"chapter_id":"..."}}`
 响应：`{"result":...}` 或 `{"error":{"code":"...","message":"..."}}`。

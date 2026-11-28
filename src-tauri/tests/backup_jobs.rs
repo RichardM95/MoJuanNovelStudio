@@ -375,7 +375,7 @@ fn backup_manager_methods_are_not_external_agent_tools() {
         .collect::<Vec<_>>();
     assert_eq!(
         responses[1]["result"]["tools"].as_array().unwrap().len(),
-        24
+        26
     );
     for response in &responses[2..] {
         assert_eq!(response["error"]["code"], -32602);

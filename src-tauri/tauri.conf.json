@@ -4,15 +4,16 @@
   "version": "0.1.1",
   "identifier": "com.mojuan.writer",
   "build": {
-    "beforeDevCommand": "npm run dev",
+    "beforeDevCommand": "yarn dev",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "npm run build",
+    "beforeBuildCommand": "yarn build",
     "frontendDist": "../dist"
   },
   "app": {
     "windows": [
       {
         "label": "main",
+        "create": false,
         "title": "墨卷",
         "width": 1280,
         "height": 850,
@@ -27,6 +28,7 @@
   "bundle": {
     "active": true,
     "targets": ["nsis"],
+    "resources": {"../tools/fanqie-browser-extension/extension/": "fanqie-extension/"},
     "icon": ["icons/icon.ico"],
     "copyright": "© 2026 墨卷",
     "windows": {

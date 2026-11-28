@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import type { Task, TasksAPI, TaskDetail, TaskStatus } from "./taskTypes";
 import { errorMessage } from "./workflowTypes";
+import { Dialog } from "./ui/Dialog";
 const labels: Record<TaskStatus, string> = {
   queued: "排队中",
   running: "检查中",
@@ -62,7 +63,6 @@ export default function TasksPanel({
     working = useRef(false),
     selectedRef = useRef(selected),
     keys = useRef(new Map<string, string>()),
-    panel = useRef<HTMLElement>(null),
     closeRef = useRef(onClose);
   bookRef.current = bookId;
   selectedRef.current = scopeBook === bookId ? selected : "";
@@ -156,53 +156,6 @@ export default function TasksPanel({
       if (timer) clearTimeout(timer);
     };
   }, [bookId, api, selected, refresh, busy, scopeBook]);
-  useEffect(() => {
-    const root = panel.current!,
-      previous = document.activeElement as HTMLElement | null;
-    const buttons = () =>
-      Array.from(
-        root.querySelectorAll<HTMLElement>(
-          'button:not(:disabled),[tabindex="0"]',
-        ),
-      );
-    const first = () => (buttons()[0] ?? root).focus();
-    const guard = (e: FocusEvent) => {
-      if (!root.contains(e.target as Node)) first();
-    };
-    const key = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        e.stopPropagation();
-        closeRef.current();
-      }
-      if (e.key === "Tab") {
-        const all = buttons(),
-          start = all[0] ?? root,
-          end = all.at(-1) ?? root;
-        if (
-          e.shiftKey &&
-          (document.activeElement === start || document.activeElement === root)
-        ) {
-          e.preventDefault();
-          end.focus();
-        } else if (
-          !e.shiftKey &&
-          (document.activeElement === end || document.activeElement === root)
-        ) {
-          e.preventDefault();
-          start.focus();
-        }
-      }
-    };
-    first();
-    document.addEventListener("focusin", guard);
-    root.addEventListener("keydown", key);
-    return () => {
-      document.removeEventListener("focusin", guard);
-      root.removeEventListener("keydown", key);
-      if (previous?.isConnected) previous.focus();
-    };
-  }, []);
   function choose(id: string) {
     detailGeneration.current++;
     setSelected(id);
@@ -298,25 +251,17 @@ export default function TasksPanel({
         (i.tracking_status === "planned" || i.tracking_status === "planted"),
     ).length;
   return (
-    <div className="review-backdrop">
-      <section
-        ref={panel}
-        className="materials-panel tasks-panel"
-        role="dialog"
-        aria-modal="true"
-        aria-label="检查任务"
-        tabIndex={-1}
-      >
-        <header>
-          <h2>作品上下文检查</h2>
-          <button aria-label="关闭检查任务" onClick={onClose}>
-            ×
-          </button>
-        </header>
-        <p className="task-boundary">
-          只做本地统计与状态检查，不改稿、不判断剧情质量。关闭面板后任务继续。
-        </p>
-        <nav>
+    <Dialog
+      title="作品上下文检查"
+      label="检查任务"
+      subtitle="只做本地统计与状态检查，不改稿、不判断剧情质量。关闭面板后任务继续。"
+      closeLabel="关闭检查任务"
+      className="tasks-panel"
+      size="xl"
+      onClose={onClose}
+    >
+      <div className="tasks-body">
+        <nav className="task-actions">
           <button
             className="primary"
             disabled={busy}
@@ -335,8 +280,7 @@ export default function TasksPanel({
         )}
         {notice && <p role="status">{notice}</p>}
         <div className="materials-layout">
-          <aside aria-label="检查记录">
-            {visibleTasks.map((t) => (
+          <aside aria-label="检查记录">            {visibleTasks.map((t) => (
               <button
                 key={t.id}
                 className="task-list-item"
@@ -525,7 +469,7 @@ export default function TasksPanel({
             )}
           </main>
         </div>
-      </section>
-    </div>
+      </div>
+    </Dialog>
   );
 }

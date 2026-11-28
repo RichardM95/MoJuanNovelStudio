@@ -10,6 +10,7 @@ import ForeshadowProposalPanel, { type ForeshadowReviewSession, type ProposalMod
 import type { Material, MaterialsAPI } from "./materialTypes";
 import type { Chapter, Volume } from "./types";
 import { errorMessage } from "./workflowTypes";
+import { Dialog } from "./ui/Dialog";
 import {
   exactExcerpt,
   occurrenceRoles,
@@ -173,7 +174,6 @@ export default function ForeshadowPanel({
   const [proposalBlocking, setProposalBlocking] = useState(false);
   const [cardDetail, setCardDetail] = useState<Material | null>(null);
   const afterEditor = useRef<string | undefined>(undefined);
-  const root = useRef<HTMLElement>(null);
   const life = useRef(0),
     listGen = useRef(0),
     rowGen = useRef(0),
@@ -315,49 +315,13 @@ export default function ForeshadowPanel({
     if (allowLeave()) onClose();
   };
   useEffect(() => {
-    if (editor) return;
-    const el = root.current;
-    if (!el) return;
-    const prev = document.activeElement as HTMLElement | null;
-    const focus = () =>
-      el
-        .querySelector<HTMLElement>(
-          "button:not(:disabled),select:not(:disabled)",
-        )
-        ?.focus();
-    focus();
-    const handle = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        closeRef.current();
-      }
-      if (e.key === "Tab") {
-        const focusables = Array.from(
-          el.querySelectorAll<HTMLElement>(
-            "button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),summary",
-          ),
-        );
-        const first = focusables[0],
-          last = focusables.at(-1);
-        if (e.shiftKey && document.activeElement === first && last) {
-          e.preventDefault();
-          last.focus();
-        }
-        if (!e.shiftKey && document.activeElement === last && first) {
-          e.preventDefault();
-          first.focus();
-        }
-      }
-    };
-    const guard = (e: FocusEvent) => {
-      if (!el.contains(e.target as Node)) focus();
-    };
-    el.addEventListener("keydown", handle);
-    document.addEventListener("focusin", guard);
     return () => {
-      document.removeEventListener("focusin", guard);
-      el.removeEventListener("keydown", handle);
-      if (prev?.isConnected && !el.contains(prev)) prev.focus();
+      life.current++;
+      listGen.current++;
+      rowGen.current++;
+      chapterGen.current++;
+      dirGen.current++;
+      detailGen.current++;
     };
   }, [editor]);
 
@@ -733,23 +697,15 @@ export default function ForeshadowPanel({
     );
   }
   return (
-    <div className="review-backdrop">
-      <section
-        ref={root}
-        className="materials-panel foreshadow-panel"
-        role="dialog"
-        aria-modal="true"
-        aria-label="全书伏笔"
-      >
-        <header>
-          <h2>全书伏笔</h2>
-          <button aria-label="关闭全书伏笔" onClick={() => closeRef.current()}>
-            ×
-          </button>
-        </header>
-        <p>
-          主要埋设和回收保留在伏笔卡。出现记录是作者选定的正文引文，不会自动改变作者状态。
-        </p>
+    <Dialog
+      title="全书伏笔"
+      subtitle="主要埋设和回收保留在伏笔卡。出现记录是作者选定的正文引文，不会自动改变作者状态。"
+      closeLabel="关闭全书伏笔"
+      className="foreshadow-panel"
+      size="xl"
+      onClose={() => closeRef.current()}
+    >
+      <div className="foreshadow-body">
         {error && (
           <p role="alert" className="review-error">
             {error}
@@ -1074,7 +1030,7 @@ export default function ForeshadowPanel({
             )}
           </main>
         </div>}
-      </section>
-    </div>
+      </div>
+    </Dialog>
   );
 }

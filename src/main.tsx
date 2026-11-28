@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import App from "./App";
 import { api, isDesktop } from "./api";
 import "./style.css";
+import "./styles/ui.css";
 createRoot(document.getElementById("root")!).render(
   isDesktop ? (
     <App api={api} />

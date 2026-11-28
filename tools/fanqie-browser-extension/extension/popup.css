@@ -1,0 +1,4 @@
+body {width: 320px; padding: 14px; font: 14px/1.5 system-ui, sans-serif; color:#243327; background:#faf8ef;}
+form label {display:block;margin:.5rem 0;} form input,form select {display:block;width:100%;box-sizing:border-box;} section[aria-label] {border-bottom:1px solid #ccd5cc;padding-bottom:8px;} h2 {font-size:15px;}
+h1 {font-size:18px;margin:0;} textarea {display:block;width:100%;box-sizing:border-box;margin:5px 0 10px;}
+button {margin:4px 3px 4px 0; padding:4px 8px; cursor:pointer;} #target {background:#e7efdf;padding:8px;}

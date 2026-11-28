@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { FileText } from "lucide-react";
 import type {
   ImportAPI,
   ImportMode,
@@ -7,6 +8,7 @@ import type {
   ImportOutcome,
 } from "./importTypes";
 import { errorMessage } from "./workflowTypes";
+import { Dialog } from "./ui/Dialog";
 export default function ImportPanel({
   api,
   onClose,
@@ -48,7 +50,6 @@ export default function ImportPanel({
     chooseLock = useRef(false),
     writeLock = useRef(false),
     readLock = useRef(false),
-    root = useRef<HTMLElement>(null),
     callbacks = useRef({ onClose, onPendingChange, onImported });
   callbacks.current = { onClose, onPendingChange, onImported };
   const blocked = committing || reloading || needsRead,
@@ -97,52 +98,16 @@ export default function ImportPanel({
   }, [blocked]);
   useEffect(() => {
     mounted.current = true;
-    const panel = root.current!,
-      previous = document.activeElement as HTMLElement | null;
-    const controls = () =>
-      Array.from(
-        panel.querySelectorAll<HTMLElement>(
-          "button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled)",
-        ),
-      );
-    const focus = () => controls()[0]?.focus();
-    const guard = (e: FocusEvent) => {
-      if (!panel.contains(e.target as Node)) focus();
-    };
-    const key = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        close();
-      }
-      if (e.key === "Tab") {
-        const all = controls(),
-          first = all[0],
-          last = all.at(-1);
-        if (e.shiftKey && document.activeElement === first) {
-          e.preventDefault();
-          last?.focus();
-        } else if (!e.shiftKey && document.activeElement === last) {
-          e.preventDefault();
-          first?.focus();
-        }
-      }
-    };
-    focus();
-    document.addEventListener("focusin", guard);
-    panel.addEventListener("keydown", key);
     const tick = setInterval(() => setNow(Date.now()), 1000);
     return () => {
       mounted.current = false;
       opSeq.current++;
       detailSeq.current++;
       clearInterval(tick);
-      document.removeEventListener("focusin", guard);
-      panel.removeEventListener("keydown", key);
       const old = sourceRef.current;
       sourceRef.current = null;
       if (old) discard(old.id);
       callbacks.current.onPendingChange(false);
-      if (previous?.isConnected) previous.focus();
     };
   }, [api]);
   async function choose() {
@@ -301,174 +266,222 @@ export default function ImportPanel({
     }
   }
   return (
-    <div className="modal-backdrop">
-      <section
-        ref={root}
-        className="modal txt-import"
-        role="dialog"
-        aria-modal="true"
-        aria-label="导入TXT新作品"
-      >
-        <header>
-          <h2>导入TXT新作品</h2>
-          <button
-            className="ghost"
-            aria-label="关闭导入面板"
-            disabled={blocked}
-            onClick={close}
+    <Dialog
+      title="导入TXT新作品"
+      subtitle="始终创建新作品，不覆盖同名作品，原文件不修改。"
+      closeLabel="关闭导入面板"
+      className="txt-import"
+      bodyClassName="import-body"
+      size="lg"
+      dismissible={!blocked}
+      onClose={close}
+      footer={
+        <>
+          <div
+            className={`ui-footer-status${confirm ? " is-confirming" : ""}`}
+            aria-label={confirm ? "确认TXT导入" : undefined}
           >
-            关闭
-          </button>
-        </header>
-        <p>始终创建新作品，不覆盖同名作品，原文件不修改。</p>
-        <div className="import-controls">
-          <label>
-            分章模式
-            <select
-              aria-label="分章模式"
-              value={mode}
-              disabled={blocked || choosing}
-              onChange={(e) =>
-                edit(() => setMode(e.target.value as ImportMode))
-              }
-            >
-              <option value="headings">按标题分章</option>
-              <option value="single">全文单章</option>
-            </select>
-          </label>
-          <button disabled={blocked || loading} onClick={() => void choose()}>
-            {choosing ? "正在读取…" : "选择TXT文件"}
-          </button>
-        </div>
-        <p className="import-hint">
-          仅UTF-8（可带BOM），文件最多16 MiB、单章最多10 MiB；每次导入都会新建作品，不会自动合并。按标题分章识别独立的“第…卷/部/篇”“第…章/回/节/集/话”行（可带“正文”前缀，标题文字可用空白或冒号分隔），以及序章、楔子、前言、番外等标题行；标题行转为名称，其余正文和换行原样保留。若识别不合适可改为全文单章；超过10MiB仍需合理分章。
-        </p>
-        <div className="import-controls">
-          <label>
-            书名
-            <input
-              aria-label="书名"
-              value={title}
-              disabled={blocked || !source || choosing}
-              onChange={(e) => edit(() => setTitle(e.target.value))}
-            />
-          </label>
-          <label>
-            作者
-            <input
-              aria-label="作者"
-              value={author}
-              disabled={blocked || !source || choosing}
-              onChange={(e) => edit(() => setAuthor(e.target.value))}
-            />
-          </label>
-          <button
-            disabled={blocked || loading || !source}
-            onClick={() => void revise()}
-          >
-            {loading && !choosing ? "正在预览…" : "更新预览"}
-          </button>
-        </div>
-        {source && <p>{source.source_name}</p>}
-        {source && !preview && !loading && (
-          <p>配置已改变或未通过校验，请更新预览后再导入。</p>
-        )}
-        {error && <p role="alert">{error}</p>}
-        {preview && (
-          <>
-            <p>
-              《{preview.title}》 · {preview.author || "未填写作者"} ·{" "}
-              {preview.mode === "single" ? "全文单章" : "按标题分章"} ·{" "}
-              {preview.volumes.length}卷、{preview.total_chapters}章 · 正文
-              {preview.total_bytes}字节
-            </p>
-            {expired ? (
-              <p role="alert">预览已过期，请重新选择文件。</p>
-            ) : (
+            {confirm && preview ? (
               <p>
-                有效至{new Date(preview.expires_at * 1000).toLocaleTimeString()}
-                。请核查目录和正文。
+                确认创建《{preview.title}》（{preview.author || "未填写作者"}），
+                {preview.volumes.length}卷、{preview.total_chapters}
+                章？不会覆盖已有作品。
               </p>
-            )}
-            <div className="import-chapters">
-              {preview.volumes.map((v, vi) => (
-                <section key={vi}>
-                  <h3>{v.title}</h3>
-                  <ul>
-                    {v.chapters.map((c) => (
-                      <li key={c.index}>
-                        <button
-                          aria-label={`查看 ${c.title}`}
-                          aria-pressed={selected === c.index}
-                          disabled={expired || blocked}
-                          onClick={() => void show(c.index)}
-                        >
-                          {c.title} · {c.bytes}字节
-                        </button>
-                        <p>{c.snippet}</p>
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-              ))}
-            </div>
-            {detailLoading && <p>正在读取所选章节…</p>}
-            {detail && (
-              <section className="import-detail">
-                <h3>章节正文预览</h3>
-                <pre>{detail.body}</pre>
-              </section>
-            )}
+            ) : null}
+            {error ? <p role="alert">{error}</p> : null}
+            {committing ? <p role="status">正在导入，请勿关闭…</p> : null}
+            {outcome ? (
+              <p role="status">
+                已导入新作品：{outcome.volumes}卷、{outcome.chapters}章。
+              </p>
+            ) : null}
+            {uncertain && needsRead ? (
+              <p role="alert">导入结果未确认，请先刷新书架核对，不要重复导入。</p>
+            ) : null}
+            {reloading ? <p>正在重新读取书架…</p> : null}
+            {reloadError ? <p role="alert">{reloadError}</p> : null}
+            {uncertain && !needsRead ? (
+              <p>已重新读取书架，请核对是否已有新作品，再决定是否重新选择文件。</p>
+            ) : null}
+            {!confirm &&
+            !error &&
+            !committing &&
+            !outcome &&
+            !uncertain &&
+            !reloading &&
+            !reloadError ? (
+              <p>{preview ? "请核查右侧目录与正文。" : "选择 TXT 文件后在此核对目录与正文。"}</p>
+            ) : null}
+          </div>
+          {needsRead && !reloading ? (
+            <button onClick={() => void reload()}>
+              {uncertain ? "刷新书架核对" : "重新加载书架"}
+            </button>
+          ) : null}
+          {confirm ? (
+            <>
+              <button className="ghost" onClick={() => setConfirm(false)}>
+                返回预览
+              </button>
+              <button
+                className="primary"
+                disabled={blocked || expired}
+                onClick={() => void commit()}
+              >
+                确认导入
+              </button>
+            </>
+          ) : preview ? (
             <button
               className="primary"
-              disabled={
-                blocked || expired || !preview.total_chapters || confirm
-              }
+              disabled={blocked || expired || !preview.total_chapters}
               onClick={() => setConfirm(true)}
             >
               导入为新作品
             </button>
-            {confirm && (
-              <section aria-label="确认TXT导入">
-                <p>
-                  确认创建《{preview.title}》（{preview.author || "未填写作者"}
-                  ），{preview.volumes.length}卷、{preview.total_chapters}
-                  章？不会覆盖已有作品。
-                </p>
-                <button className="ghost" onClick={() => setConfirm(false)}>
-                  返回预览
-                </button>
-                <button
-                  className="primary"
-                  disabled={blocked || expired}
-                  onClick={() => void commit()}
-                >
-                  确认导入
-                </button>
-              </section>
+          ) : null}
+        </>
+      }
+    >
+      <div className="import-grid">
+        <aside className="import-setup">
+          <section className="ui-card">
+            <h3 className="ui-card-title">
+              <span className="import-step">
+                <strong>1</strong>选择文件
+              </span>
+            </h3>
+            <button
+              className="import-file-button"
+              disabled={blocked || loading}
+              onClick={() => void choose()}
+            >
+              {choosing ? "正在读取…" : "选择TXT文件"}
+            </button>
+            {source ? (
+              <div className="import-file-meta">
+                <strong>{source.source_name}</strong>
+                <span>
+                  {source.mode === "single" ? "全文单章" : "按标题分章"} ·{" "}
+                  {source.volumes.length}卷、{source.total_chapters}章 · 正文
+                  {source.total_bytes}字节
+                </span>
+              </div>
+            ) : (
+              <p className="ui-meta">支持 UTF-8（可带 BOM）TXT，原文件不会被修改。</p>
             )}
-          </>
-        )}
-        {committing && <p role="status">正在导入，请勿关闭…</p>}
-        {outcome && (
-          <p role="status">
-            已导入新作品：{outcome.volumes}卷、{outcome.chapters}章。
-          </p>
-        )}
-        {uncertain && needsRead && (
-          <p role="alert">导入结果未确认，请先刷新书架核对，不要重复导入。</p>
-        )}
-        {reloading && <p>正在重新读取书架…</p>}
-        {reloadError && <p role="alert">{reloadError}</p>}
-        {needsRead && !reloading && (
-          <button onClick={() => void reload()}>
-            {uncertain ? "刷新书架核对" : "重新加载书架"}
-          </button>
-        )}
-        {uncertain && !needsRead && (
-          <p>已重新读取书架，请核对是否已有新作品，再决定是否重新选择文件。</p>
-        )}
-      </section>
-    </div>
+          </section>
+          <section className="ui-card">
+            <h3 className="ui-card-title">2 书籍信息</h3>
+            <label className="ui-field">
+              分章模式
+              <select
+                aria-label="分章模式"
+                value={mode}
+                disabled={blocked || choosing}
+                onChange={(e) =>
+                  edit(() => setMode(e.target.value as ImportMode))
+                }
+              >
+                <option value="headings">按标题分章</option>
+                <option value="single">全文单章</option>
+              </select>
+            </label>
+            <label className="ui-field">
+              书名
+              <input
+                aria-label="书名"
+                value={title}
+                disabled={blocked || !source || choosing}
+                onChange={(e) => edit(() => setTitle(e.target.value))}
+              />
+            </label>
+            <label className="ui-field">
+              作者
+              <input
+                aria-label="作者"
+                value={author}
+                disabled={blocked || !source || choosing}
+                onChange={(e) => edit(() => setAuthor(e.target.value))}
+              />
+            </label>
+            <button
+              disabled={blocked || loading || !source}
+              onClick={() => void revise()}
+            >
+              {loading && !choosing ? "正在预览…" : "更新预览"}
+            </button>
+          </section>
+          <details className="import-rules">
+            <summary>分章规则与限制</summary>
+            <p>
+              仅UTF-8（可带BOM），文件最多16 MiB、单章最多10 MiB；每次导入都会新建作品，不会自动合并。按标题分章识别独立的“第…卷/部/篇”“第…章/回/节/集/话”行（可带“正文”前缀，标题文字可用空白或冒号分隔），以及序章、楔子、前言、番外等标题行；标题行转为名称，其余正文和换行原样保留。若识别不合适可改为全文单章；超过10MiB仍需合理分章。
+            </p>
+          </details>
+        </aside>
+        <div className="import-preview">
+          {source && !preview && !loading && (
+            <p className="ui-meta">配置已改变或未通过校验，请更新预览后再导入。</p>
+          )}
+          {preview ? (
+            <>
+              <div className="import-summary">
+                <strong>《{preview.title}》</strong>
+                <span>
+                  {preview.author || "未填写作者"} ·{" "}
+                  {preview.mode === "single" ? "全文单章" : "按标题分章"} ·{" "}
+                  {preview.volumes.length}卷、{preview.total_chapters}章 · 正文
+                  {preview.total_bytes}字节
+                </span>
+                {expired ? (
+                  <span role="alert">预览已过期，请重新选择文件。</span>
+                ) : (
+                  <span>
+                    有效至
+                    {new Date(preview.expires_at * 1000).toLocaleTimeString()}
+                    。请核查目录和正文。
+                  </span>
+                )}
+              </div>
+              <div className="import-chapters">
+                {preview.volumes.map((v, vi) => (
+                  <section key={vi}>
+                    <h3>{v.title}</h3>
+                    <ul>
+                      {v.chapters.map((c) => (
+                        <li key={c.index}>
+                          <button
+                            aria-label={`查看 ${c.title}`}
+                            aria-pressed={selected === c.index}
+                            disabled={expired || blocked}
+                            onClick={() => void show(c.index)}
+                          >
+                            {c.title} · {c.bytes}字节
+                          </button>
+                          <p>{c.snippet}</p>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                ))}
+              </div>
+              {detailLoading && <p className="ui-meta">正在读取所选章节…</p>}
+              {detail && (
+                <section className="import-detail">
+                  <h3>章节正文预览</h3>
+                  <pre>{detail.body}</pre>
+                </section>
+              )}
+            </>
+          ) : (
+            <div className="ui-empty import-preview-empty">
+              <FileText size={34} />
+              <h3>预览目录与正文</h3>
+              <p>选择 TXT 文件后在此核对目录与正文。</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </Dialog>
   );
 }

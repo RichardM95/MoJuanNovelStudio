@@ -291,7 +291,7 @@ fn task_management_is_not_exposed_to_external_agents() {
         .collect::<Vec<_>>();
     assert_eq!(
         responses[1]["result"]["tools"].as_array().unwrap().len(),
-        24
+        26
     );
     for tool in responses[1]["result"]["tools"].as_array().unwrap() {
         assert!(!forbidden.contains(&tool["name"].as_str().unwrap()));

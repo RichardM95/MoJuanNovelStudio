@@ -6,6 +6,7 @@ import type {
   SplitOutcome,
 } from "./splitTypes";
 import { errorMessage } from "./workflowTypes";
+import { Dialog } from "./ui/Dialog";
 export default function SplitPanel({
   api,
   target,
@@ -36,7 +37,6 @@ export default function SplitPanel({
     settled = useRef(false),
     outcome = useRef<SplitOutcome | undefined>(undefined),
     commitError = useRef(""),
-    root = useRef<HTMLElement>(null),
     callbacks = useRef({ onClose, onPendingChange, onCommitted });
   callbacks.current = { onClose, onPendingChange, onCommitted };
   const discard = (id: string) => {
@@ -52,47 +52,11 @@ export default function SplitPanel({
   }
   useEffect(() => {
     mounted.current = true;
-    const panel = root.current!,
-      previous = document.activeElement as HTMLElement | null;
-    const controls = () =>
-      Array.from(
-        panel.querySelectorAll<HTMLElement>(
-          "button:not(:disabled),input:not(:disabled),textarea:not(:disabled)",
-        ),
-      );
-    const focus = () => controls()[0]?.focus();
-    const guard = (e: FocusEvent) => {
-      if (!panel.contains(e.target as Node)) focus();
-    };
-    const key = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        close();
-      }
-      if (e.key === "Tab") {
-        const a = controls(),
-          first = a[0],
-          last = a.at(-1);
-        if (e.shiftKey && document.activeElement === first) {
-          e.preventDefault();
-          last?.focus();
-        } else if (!e.shiftKey && document.activeElement === last) {
-          e.preventDefault();
-          first?.focus();
-        }
-      }
-    };
-    focus();
-    document.addEventListener("focusin", guard);
-    panel.addEventListener("keydown", key);
     return () => {
       mounted.current = false;
       generation.current++;
       if (candidate.current) discard(candidate.current);
       callbacks.current.onPendingChange(false);
-      document.removeEventListener("focusin", guard);
-      panel.removeEventListener("keydown", key);
-      if (previous?.isConnected) previous.focus();
     };
   }, [api]);
   function change(value: string) {
@@ -234,29 +198,48 @@ export default function SplitPanel({
     }
   }
   return (
-    <div className="modal-backdrop">
-      <section
-        ref={root}
-        className="modal chapter-split"
-        role="dialog"
-        aria-modal="true"
-        aria-label="拆分章节"
-      >
-        <header>
-          <h2>拆分章节</h2>
-          <button
-            aria-label="关闭拆章面板"
-            disabled={busy || needsRead}
-            onClick={close}
-          >
-            关闭
+    <Dialog
+      title="拆分章节"
+      subtitle="按精确光标位置拆成两章，不增加或删除正文字符。"
+      closeLabel="关闭拆章面板"
+      className="chapter-split"
+      size="md"
+      dismissible={!busy && !needsRead}
+      onClose={close}
+      footer={
+        confirm ? (
+          <>
+            <button
+              className="ghost"
+              onClick={() => setConfirm(false)}
+              disabled={busy}
+            >
+              取消确认
+            </button>
+            <button className="primary" onClick={commit} disabled={busy}>
+              确认拆分
+            </button>
+          </>
+        ) : preview ? (
+          <button className="primary" onClick={ask} disabled={busy}>
+            拆分为两章
           </button>
-        </header><p>新章节不会继承原章写作约束。拆分后原章旧依据包因正文变化失效，请分别配置并重新冻结。</p>
-        <p>按精确光标位置拆成两章，不增加或删除正文字符。</p>
-        <p>
+        ) : needsRead && !busy ? (
+          <button onClick={reload}>重新读取核对</button>
+        ) : undefined
+      }
+    >
+      <section className="ui-card">
+        <p className="ui-meta">
+          新章节不会继承原章写作约束。拆分后原章旧依据包因正文变化失效，请分别配置并重新冻结。
+        </p>
+        <p className="ui-meta">按精确光标位置拆成两章，不增加或删除正文字符。</p>
+        <p className="ui-meta">
           原章关联资料仍留在原章；摘要来源会过期，旧改稿建议不能直接采纳。新章不继承关联，请手动复核。拆前全文保留在原章历史；恢复历史不会自动删除新章。
         </p>
-        <label>
+      </section>
+      <section className="ui-card">
+        <label className="ui-field">
           新章名
           <input
             aria-label="新章名"
@@ -268,13 +251,15 @@ export default function SplitPanel({
         <button onClick={prepare} disabled={busy || needsRead || done}>
           生成拆章预览
         </button>
-        {preview && (
-          <>
+      </section>
+      {preview && (
+        <section className="ui-card split-preview">
+          <div className="split-column">
             <h3>
               原章：{preview.original_title} · {preview.before_bytes}字节
             </h3>
             <pre>{preview.before}</pre>
-            {preview.before_truncated && <p>仅显示前2000字符</p>}
+            {preview.before_truncated && <p className="ui-meta">仅显示前2000字符</p>}
             <button
               className="ghost"
               onClick={() => show("before")}
@@ -282,11 +267,13 @@ export default function SplitPanel({
             >
               查看前半全文
             </button>
+          </div>
+          <div className="split-column">
             <h3>
               新章：{preview.new_title} · {preview.after_bytes}字节
             </h3>
             <pre>{preview.after}</pre>
-            {preview.after_truncated && <p>仅显示前2000字符</p>}
+            {preview.after_truncated && <p className="ui-meta">仅显示前2000字符</p>}
             <button
               className="ghost"
               onClick={() => show("after")}
@@ -294,35 +281,29 @@ export default function SplitPanel({
             >
               查看后半全文
             </button>
-            <button className="primary" onClick={ask} disabled={busy}>
-              拆分为两章
-            </button>
-          </>
-        )}
-        {detail !== null && (
-          <textarea aria-label="拆章全文预览" readOnly value={detail} />
-        )}{" "}
-        {confirm && (
-          <div role="group" aria-label="确认拆章">
-            <p>
-              确认保留原章前半，并在其后新增“{preview?.new_title}
-              ”？关联不会迁移。
-            </p>
-            <button className="primary" onClick={commit} disabled={busy}>
-              确认拆分
-            </button>
-            <button
-              className="ghost"
-              onClick={() => setConfirm(false)}
-              disabled={busy}
-            >
-              取消确认
-            </button>
           </div>
-        )}
-        {needsRead && !busy && <button onClick={reload}>重新读取核对</button>}
-        {message && <p role="status">{message}</p>}
-      </section>
-    </div>
+        </section>
+      )}
+      {detail !== null && (
+        <textarea
+          className="split-detail"
+          aria-label="拆章全文预览"
+          readOnly
+          value={detail}
+        />
+      )}
+      {confirm && (
+        <div role="group" aria-label="确认拆章" className="ui-confirm">
+          <p>
+            确认保留原章前半，并在其后新增“{preview?.new_title}”？关联不会迁移。
+          </p>
+        </div>
+      )}
+      {message && (
+        <p role="status" className="ui-meta">
+          {message}
+        </p>
+      )}
+    </Dialog>
   );
 }

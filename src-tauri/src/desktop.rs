@@ -86,6 +86,14 @@ fn get_foreshadow_directory(state: State<'_, Store>, book_id: String, epoch: Str
 fn get_foreshadow_chapter(state: State<'_, Store>, book_id: String, chapter_id: String, epoch: String) -> crate::WorkflowResult<crate::ForeshadowChapterExcerpt> {
     with_foreshadow(state, |s| s.get_foreshadow_chapter(&book_id, &chapter_id, &epoch))
 }
+#[tauri::command]
+fn get_fanqie_directory(state: State<'_, Store>, book_id: String) -> crate::WorkflowResult<crate::FanqieDirectory> {
+    with_foreshadow(state, |s| s.fanqie_directory(&book_id))
+}
+#[tauri::command]
+fn get_fanqie_packet(state: State<'_, Store>, book_id: String, epoch: String, expected: crate::FanqieChapter) -> crate::WorkflowResult<crate::FanqiePacket> {
+    with_foreshadow(state, |s| s.fanqie_packet(&book_id, &epoch, &expected))
+}
 // Only the two optional review-source reads use this worker path. Do not
 // wait for a busy Store or change the scheduling of existing writes.
 async fn review_source_read<T: Send + 'static>(
@@ -889,9 +897,10 @@ async fn apply_material_organization(state: State<'_, Store>, id: String, accept
     project_import_io(Arc::clone(state.inner()), move |service| service.apply_material_organization(&id, accepted)).await
 }
 
-struct DesktopAgents {
+pub(crate) struct DesktopAgents {
     broker: Arc<crate::agent::AgentBroker>,
-    endpoint: Option<String>,
+    pub(crate) endpoint: Option<String>,
+    pub(crate) data_dir: std::path::PathBuf,
     _server: Option<crate::ipc::Server>,
 }
 
@@ -911,9 +920,9 @@ fn desktop_agent_status(state: State<'_, DesktopAgents>) -> DesktopAgentStatus {
 
 #[tauri::command]
 fn grant_desktop_agent(
-    state: State<'_, DesktopAgents>, session_id: String, book_id: String,
+    state: State<'_, DesktopAgents>, session_id: String, book_id: String, fanqie_send: Option<bool>,
 ) -> crate::WorkflowResult<()> {
-    state.broker.grant_session(&session_id, &book_id)
+    state.broker.grant_access(&session_id, &book_id, fanqie_send.unwrap_or(false))
 }
 
 #[tauri::command]
@@ -931,12 +940,31 @@ pub fn run() {
         }))
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
-            let dir = app.path().app_data_dir()?;
-            std::fs::create_dir_all(&dir)?;
-            let service = Service::open(dir.join("library.db")).map_err(std::io::Error::other)?;
+            let mut args = std::env::args_os().skip(1);
+            let isolated = args.any(|arg| arg == "--library-dir");
+            let dir = if isolated {
+                let path = args.next().map(std::path::PathBuf::from)
+                    .ok_or_else(|| std::io::Error::other("请指定独立书库的绝对目录"))?;
+                if !path.is_absolute() || !path.join("library.db").is_file() {
+                    return Err(std::io::Error::other("独立书库目录下须有 library.db").into());
+                }
+                path
+            } else {
+                app.path().app_data_dir()?
+            };
+            std::fs::create_dir_all(&dir).map_err(|e|std::io::Error::other(format!("无法打开书库目录 {}：{e}",dir.display())))?;
+            let config=app.config().app.windows.iter().find(|window| window.label=="main")
+                .ok_or_else(||std::io::Error::other("缺少墨卷主窗口配置"))?;
+            let mut window=tauri::WebviewWindowBuilder::from_config(app.handle(),config)?;
+            if isolated {
+                let profile=dir.join("WebView2");
+                std::fs::create_dir_all(&profile)?;
+                window=window.data_directory(profile);
+            }
+            let service = Service::open(dir.join("library.db")).map_err(|e|std::io::Error::other(format!("无法打开书库 {}：{e}",dir.display())))?;
             let store = Arc::new(Mutex::new(service));
             let broker = Arc::new(crate::agent::AgentBroker::new(Arc::clone(&store)));
-            let mut agents = DesktopAgents { broker, endpoint: None, _server: None };
+            let mut agents = DesktopAgents { broker, endpoint: None, data_dir: dir.clone(), _server: None };
             if let Ok(path) = crate::ipc::desktop_endpoint(&app.config().identifier) {
                 if let Ok(server) = crate::ipc::start_server(Arc::clone(&agents.broker), &path) {
                     agents.endpoint = path.to_str().map(str::to_owned);
@@ -950,6 +978,7 @@ pub fn run() {
             app.manage(backups);
             app.manage(store);
             app.manage(runner);
+            window.build()?;
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -971,6 +1000,8 @@ pub fn run() {
             discard_project_import,
             preview_material_organization,
             apply_material_organization,
+            crate::fanqie_setup::connect_codex,
+            crate::fanqie_setup::register_fanqie_browser,
             desktop_agent_status,
             grant_desktop_agent,
             revoke_desktop_agent,
@@ -1004,6 +1035,8 @@ pub fn run() {
             list_book_foreshadow,
             get_foreshadow_directory,
             get_foreshadow_chapter,
+            get_fanqie_directory,
+            get_fanqie_packet,
             get_foreshadow_source_epoch,
             get_foreshadow_source_window,
             diagnose_writing_predecessors,

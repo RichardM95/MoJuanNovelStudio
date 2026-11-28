@@ -3,6 +3,7 @@ import type { Chapter, LibraryState } from "./types";
 import type { WorkflowAPI, Proposal } from "./workflowTypes";
 import HistoryPanel from "./HistoryPanel";
 import { errorMessage } from "./workflowTypes";
+import { Dialog } from "./ui/Dialog";
 type Confirmation = {
   kind: "accept";
   id: string;
@@ -57,7 +58,6 @@ export default function ReviewPanel({
     return true;
   };
   const generation = useRef(0);
-  const panel = useRef<HTMLElement>(null);
   const scope = `${bookId}:${chapter?.id ?? ""}:${chapter?.revision ?? ""}`;
   const currentScope = useRef(scope);
   currentScope.current = scope;
@@ -87,47 +87,6 @@ export default function ReviewPanel({
       generation.current++;
     };
   }, [bookId, chapter?.id, chapter?.revision, api, tab]);
-  useEffect(() => {
-    const previous = document.activeElement as HTMLElement | null;
-    const root = panel.current!;
-    const focusables = () =>
-      Array.from(
-        root.querySelectorAll<HTMLElement>(
-          'button:not(:disabled),select:not(:disabled),input:not(:disabled),textarea:not(:disabled),a[href],[tabindex="0"]',
-        ),
-      );
-    const focusFirst = () => (focusables()[0] ?? root).focus();
-    const guard = (event: FocusEvent) => {
-      if (!root.contains(event.target as Node)) focusFirst();
-    };
-    const trap = (event: KeyboardEvent) => {
-      if (event.key !== "Tab") return;
-      const items = focusables();
-      const first = items[0] ?? root,
-        last = items.at(-1) ?? root;
-      if (
-        event.shiftKey &&
-        (document.activeElement === first || document.activeElement === root)
-      ) {
-        event.preventDefault();
-        last.focus();
-      } else if (
-        !event.shiftKey &&
-        (document.activeElement === last || document.activeElement === root)
-      ) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-    focusFirst();
-    document.addEventListener("focusin", guard);
-    root.addEventListener("keydown", trap);
-    return () => {
-      document.removeEventListener("focusin", guard);
-      root.removeEventListener("keydown", trap);
-      if (previous?.isConnected) previous.focus();
-    };
-  }, []);
   const proposal = proposals.find((p) => p.id === selected) ?? proposals[0];
   const locked = busy || working;
   const execute = async (action: () => Promise<LibraryState>) => {
@@ -147,30 +106,19 @@ export default function ReviewPanel({
     }
   };
   return (
-    <div className="review-backdrop">
-      <section
-        ref={panel}
-        tabIndex={-1}
-        className="review-panel"
-        role="dialog"
-        aria-modal="true"
-        aria-label="改稿与历史"
-      >
-        <header>
-          <div>
-            <h2>改稿与历史</h2>
-            <p>外部智能体只能提交建议，正式稿件由你决定。</p>
-          </div>
-          <button
-            disabled={locked}
-            aria-label="关闭改稿面板"
-            onClick={() => {
-              if (guardNavigation()) onClose();
-            }}
-          >
-            ×
-          </button>
-        </header><p>此处为普通正文提案，无冻结约束依据。启用或暂停写作约束的章节不能从这里采纳，请到“写作约束”审阅严格建议。</p>
+    <Dialog
+      title="改稿与历史"
+      subtitle="外部智能体只能提交建议，正式稿件由你决定。"
+      closeLabel="关闭改稿面板"
+      className="review-panel"
+      size="xl"
+      dismissible={!locked}
+      onClose={() => {
+        if (guardNavigation()) onClose();
+      }}
+    >
+      <div className="review-body">
+        <p className="ui-meta">此处为普通正文提案，无冻结约束依据。启用或暂停写作约束的章节不能从这里采纳，请到“写作约束”审阅严格建议。</p>
         <nav className="review-tabs">
           <button
             disabled={locked}
@@ -327,7 +275,7 @@ export default function ReviewPanel({
             </button>
           </div>
         )}
-      </section>
-    </div>
+      </div>
+    </Dialog>
   );
 }

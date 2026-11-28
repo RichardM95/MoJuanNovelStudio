@@ -226,6 +226,13 @@ fn heading(line: &str) -> Option<(bool, String)> {
         return Some((false, title.into()));
     }
     let (volume, _, _, suffix) = heading_parts(line)?;
+    if volume
+        && !suffix.starts_with(char::is_whitespace)
+        && !suffix.starts_with(['：', ':'])
+        && suffix.ends_with(['。', '！', '？', '；', '!', '?', ';', '…'])
+    {
+        return None;
+    }
     Some((volume, heading_title_checked(volume, suffix)?))
 }
 // Slices include their original LF, CRLF, or CR terminator without allocating copies.
@@ -251,6 +258,55 @@ pub(crate) fn lines(text: &str) -> impl Iterator<Item = (&str, &str)> {
         Some((&text[start..end], &text[start..offset]))
     })
 }
+fn author_credit(line: &str) -> Option<&str> {
+    let author = line
+        .trim()
+        .strip_prefix("作者")?
+        .trim_start()
+        .strip_prefix(['：', ':'])?
+        .trim();
+    (!author.is_empty() && author.len() <= 4096).then_some(author)
+}
+
+fn initial_author(text: &str) -> &str {
+    lines(text)
+        .map(|(line, _)| line)
+        .filter(|line| !line.trim().is_empty())
+        .take(2)
+        .take_while(|line| heading(line).is_none())
+        .find_map(author_credit)
+        .unwrap_or_default()
+}
+
+fn divider(line: &str) -> bool {
+    let line = line.trim();
+    line.len() >= 10 && line.bytes().all(|byte| byte == b'-')
+}
+
+// A signed cover followed by a framed volume is front matter. Keep its bytes
+// with the first chapter so the cover does not create a separate volume.
+fn framed_cover_volume(text: &str) -> Option<usize> {
+    let mut front = lines(text)
+        .take(16)
+        .enumerate()
+        .map(|(index, (line, _))| (index, line))
+        .filter(|(_, line)| !line.trim().is_empty());
+    let (_, title) = front.next()?;
+    let title = title.trim().strip_prefix('《')?.strip_suffix('》')?;
+    if title.trim().is_empty() || title.contains(['《', '》']) {
+        return None;
+    }
+    author_credit(front.next()?.1)?;
+    let (_, boundary) = front
+        .by_ref()
+        .find(|(_, line)| divider(line) || heading(line).is_some())?;
+    if !divider(boundary) {
+        return None;
+    }
+    let (index, volume) = front.next()?;
+    (heading(volume)?.0 && divider(front.next()?.1)).then_some(index)
+}
+
 pub(crate) fn push_volume(volumes: &mut Vec<Volume>, title: String) -> WorkflowResult<()> {
     if volumes.len() >= VOLUME_COUNT_LIMIT {
         return Err(fail("limit_exceeded", "最多导入200卷，未创建作品"));
@@ -281,6 +337,26 @@ pub(crate) fn push_chapter(
     *count += 1;
     Ok(())
 }
+fn append_body(volumes: &mut [Volume], pending: &mut String, raw: &str) -> WorkflowResult<()> {
+    let body = &mut volumes
+        .last_mut()
+        .unwrap()
+        .chapters
+        .last_mut()
+        .unwrap()
+        .body;
+    if body.len() + pending.len() + raw.len() > CHAPTER_LIMIT {
+        return Err(fail(
+            "limit_exceeded",
+            "单章超过10MiB，请检查分章标题；未创建作品",
+        ));
+    }
+    body.push_str(pending);
+    pending.clear();
+    body.push_str(raw);
+    Ok(())
+}
+
 fn parse(text: &str, mode: &str) -> WorkflowResult<Vec<Volume>> {
     if mode == "single" {
         if text.len() > CHAPTER_LIMIT {
@@ -302,41 +378,46 @@ fn parse(text: &str, mode: &str) -> WorkflowResult<Vec<Volume>> {
     if mode != "headings" {
         return Err(fail("invalid_input", "不支持的分章模式"));
     }
-    let has_heading = lines(text).any(|(line, _)| heading(line).is_some());
+    let preamble_title = if lines(text).any(|(line, _)| heading(line).is_some()) {
+        "前言"
+    } else {
+        "正文"
+    };
+    let cover_volume = framed_cover_volume(text);
     let mut volumes = vec![];
     let mut count = 0;
-    for (line, raw) in lines(text) {
+    let mut pending = String::new();
+    for (index, (line, raw)) in lines(text).enumerate() {
+        if cover_volume.is_some_and(|volume| index < volume) {
+            pending.push_str(raw);
+            continue;
+        }
         if let Some((volume_kind, title)) = heading(line) {
             if volume_kind {
-                push_volume(&mut volumes, title)?
+                if !pending.is_empty() && Some(index) != cover_volume {
+                    push_chapter(&mut volumes, &mut count, preamble_title.into())?;
+                    append_body(&mut volumes, &mut pending, "")?;
+                }
+                push_volume(&mut volumes, title)?;
             } else {
-                push_chapter(&mut volumes, &mut count, title)?
+                push_chapter(&mut volumes, &mut count, title)?;
+                append_body(&mut volumes, &mut pending, "")?;
             }
             continue;
         }
         if volumes.last().is_none_or(|v| v.chapters.is_empty()) {
-            push_chapter(
-                &mut volumes,
-                &mut count,
-                if has_heading { "前言" } else { "正文" }.into(),
-            )?
+            if !volumes.is_empty() && (line.trim().is_empty() || divider(line)) {
+                pending.push_str(raw);
+                continue;
+            }
+            push_chapter(&mut volumes, &mut count, preamble_title.into())?;
         }
-        let body = &mut volumes
-            .last_mut()
-            .unwrap()
-            .chapters
-            .last_mut()
-            .unwrap()
-            .body;
-        if body.len().saturating_add(raw.len()) > CHAPTER_LIMIT {
-            return Err(fail(
-                "limit_exceeded",
-                "单章超过10MiB，请检查分章标题；未创建作品",
-            ));
-        }
-        body.push_str(raw);
+        append_body(&mut volumes, &mut pending, raw)?;
     }
-    if count == 0 {
+    if !pending.is_empty() {
+        push_chapter(&mut volumes, &mut count, preamble_title.into())?;
+        append_body(&mut volumes, &mut pending, "")?;
+    } else if count == 0 {
         push_chapter(&mut volumes, &mut count, "正文".into())?
     }
     Ok(volumes)
@@ -460,7 +541,7 @@ impl Service {
             Arc::from(text),
             source_name.into(),
             title,
-            String::new(),
+            initial_author(text).into(),
             mode,
             epoch(&self.conn)?,
         )?;

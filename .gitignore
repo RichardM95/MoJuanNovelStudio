@@ -5,6 +5,14 @@ dist/
 coverage/
 *.tsbuildinfo
 
+# Yarn 4 本地状态与缓存
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+
 # Rust / Tauri 构建产物
 target/
 src-tauri/gen/schemas/
@@ -15,6 +23,10 @@ src-tauri/gen/schemas/
 qa-output/
 .superpowers/
 .screenshots/
+
+# 本地作品资料，仅纳入智能体导航
+/project/*
+!/project/AGENTS.md
 
 # SQLite 数据库及其写入临时文件
 *.db

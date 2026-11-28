@@ -88,6 +88,58 @@ fn volume_headings_do_not_require_a_separator() {
     assert_eq!(p.volumes[1].title, "云涌");
     assert_eq!(p.total_chapters, 2);
 }
+
+#[test]
+fn framed_volume_headings_do_not_create_extra_prefaces_or_split_prose() {
+    let mut s = Service::open(":memory:").unwrap();
+    let cover = "《旧稿》\r\n作者：笔名\r\n全两卷完整版\r\n\r\n----------\r\n";
+    let ending = "第一卷《风起》终。\r\n第一卷里，他回到了故乡。\r\n----------\r\n";
+    let text = format!(
+        "{cover}第一卷：风起\r\n----------\r\n\r\n第一章 开始\r\n甲\r\n{ending}第二卷：云涌\r\n----------\r\n\r\n第二章 重逢\r\n乙"
+    );
+    let p = s.prepare_txt_import(text.as_bytes(), "稿.txt").unwrap();
+    assert_eq!(p.volumes.len(), 2);
+    assert_eq!(p.total_chapters, 2);
+    assert_eq!(p.volumes[0].title, "风起");
+    assert_eq!(p.volumes[1].title, "云涌");
+    assert_eq!(
+        s.get_txt_import_chapter(&p.id, 0).unwrap().body,
+        format!("{cover}----------\r\n\r\n甲\r\n{ending}")
+    );
+    assert_eq!(
+        s.get_txt_import_chapter(&p.id, 1).unwrap().body,
+        "----------\r\n\r\n乙"
+    );
+}
+
+#[test]
+fn initial_author_credit_is_detected_and_explicit_edits_take_precedence() {
+    let mut s = Service::open(":memory:").unwrap();
+    let text = "\u{feff}《旧稿》\r\n作者 ： 扯蛋虾米  \r\n\r\n第一章 开始\r\n正文";
+    let p = s
+        .prepare_txt_import_mode(text.as_bytes(), "稿.txt", "single")
+        .unwrap();
+    assert_eq!(p.author, "扯蛋虾米");
+    assert_eq!(
+        s.get_txt_import_chapter(&p.id, 0).unwrap().body,
+        text.trim_start_matches('\u{feff}')
+    );
+    let p = s
+        .revise_txt_import(&p.id, &p.title, "", "headings")
+        .unwrap();
+    assert!(p.author.is_empty());
+    let p = s
+        .revise_txt_import(&p.id, &p.title, "手填作者", "headings")
+        .unwrap();
+    s.commit_txt_import(&p.id).unwrap();
+    assert_eq!(s.load().unwrap().books[0].author, "手填作者");
+
+    let p = s
+        .prepare_txt_import("第一章 开始\n作者: 正文里的署名\n正文".as_bytes(), "稿.txt")
+        .unwrap();
+    assert!(p.author.is_empty());
+}
+
 #[test]
 fn creates_distinct_same_name_book_and_keeps_existing_work() {
     let mut s = Service::open(":memory:").unwrap();

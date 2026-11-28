@@ -186,7 +186,7 @@ fn mcp_tool_catalog_and_dispatch_keep_history_management_private() {
         .iter()
         .map(|tool| tool["name"].as_str().unwrap())
         .collect::<Vec<_>>();
-    assert_eq!(names.len(), 24);
+    assert_eq!(names.len(), 26);
     for name in forbidden() {
         assert!(!names.contains(&name));
     }
